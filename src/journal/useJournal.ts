@@ -1,5 +1,5 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { dayKey } from '../dates';
 import {
@@ -9,9 +9,13 @@ import {
   type Entry,
 } from '../store';
 
+const emptyEntries: Entry[] = [];
+
 export function useJournal() {
   const [month, setMonth] = useState(() => new Date());
-  const [entries, setEntries] = useState<Entry[]>([]);
+  const [entries, setEntries] = useState(emptyEntries);
+  const [loadedMonth, setLoadedMonth] = useState<string>();
+  const writeVersion = useRef(0);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string>();
@@ -28,12 +32,25 @@ export function useJournal() {
   useFocusEffect(
     useCallback(() => {
       let active = true;
+      const version = writeVersion.current;
       setLoading(true);
       loadEntriesInRange(start, end)
         .then(
           (rows) => {
             if (active) {
-              setEntries(rows);
+              if (version === writeVersion.current) {
+                setEntries((current) =>
+                  current.length === rows.length &&
+                  current.every(
+                    (entry, index) =>
+                      entry.date === rows[index].date &&
+                      entry.body === rows[index].body,
+                  )
+                    ? current
+                    : rows,
+                );
+                setLoadedMonth(start);
+              }
               setError(false);
             }
           },
@@ -50,8 +67,8 @@ export function useJournal() {
     }, [start, end]),
   );
 
-  const selectEntry = useCallback((entry: Entry) => {
-    setSelected(entry.date);
+  const selectEntry = useCallback((date: string) => {
+    setSelected(date);
   }, []);
 
   function edit(entry: Entry) {
@@ -62,6 +79,8 @@ export function useJournal() {
   const move = useCallback((delta: number) => {
     setSelected(undefined);
     setEditing(undefined);
+    setLoading(true);
+    setError(false);
     setMonth(
       (current) =>
         new Date(current.getFullYear(), current.getMonth() + delta, 1),
@@ -78,6 +97,7 @@ export function useJournal() {
     setBusy(true);
     try {
       await saveEntry(entry.date, text);
+      writeVersion.current += 1;
       setEntries((rows) =>
         rows.map((row) =>
           row.date === entry.date ? { ...row, body: text } : row,
@@ -109,6 +129,7 @@ export function useJournal() {
         'DELETE FROM entries WHERE date = ?',
         pendingDelete.date,
       );
+      writeVersion.current += 1;
       setEntries((rows) =>
         rows.filter((row) => row.date !== pendingDelete.date),
       );
@@ -124,8 +145,8 @@ export function useJournal() {
   return {
     year,
     index,
-    entries,
-    loading,
+    entries: loadedMonth === start ? entries : emptyEntries,
+    loading: loadedMonth !== start && loading,
     error,
     selected,
     editing,

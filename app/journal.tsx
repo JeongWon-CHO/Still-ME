@@ -9,10 +9,7 @@ import { dateLabel } from '../src/dates';
 import { Dialog } from '../src/Dialog';
 import { JournalCalendar } from '../src/journal/JournalCalendar';
 import { useJournal } from '../src/journal/useJournal';
-import type { Entry } from '../src/store';
 import { Button, color, styles, Text, TextInput } from '../src/ui';
-
-const emptyEntries: Entry[] = [];
 
 export default function Journal() {
   const router = useRouter();
@@ -43,12 +40,11 @@ export default function Journal() {
     cancelDelete,
     confirmDelete,
   } = useJournal();
-  const visibleEntries = loading || error ? emptyEntries : entries;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <FlatList
-        data={visibleEntries}
+        data={entries}
         keyExtractor={(entry) => entry.date}
         initialNumToRender={4}
         keyboardShouldPersistTaps="handled"
@@ -59,7 +55,7 @@ export default function Journal() {
             <JournalCalendar
               year={year}
               index={index}
-              entries={visibleEntries}
+              entries={entries}
               selected={selected}
               busy={busy}
               onSelect={selectEntry}

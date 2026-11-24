@@ -11,7 +11,7 @@ type Props = {
   entries: Entry[];
   selected: string | undefined;
   busy: boolean;
-  onSelect: (entry: Entry) => void;
+  onSelect: (date: string) => void;
   move: (delta: number) => void;
 };
 
@@ -26,8 +26,8 @@ export const JournalCalendar = memo(function JournalCalendar({
 }: Props) {
   const blank = new Date(year, index, 1).getDay();
   const length = new Date(year, index + 1, 0).getDate();
-  const entriesByDate = useMemo(
-    () => new Map(entries.map((entry) => [entry.date, entry])),
+  const recordedDates = useMemo(
+    () => new Set(entries.map((entry) => entry.date)),
     [entries],
   );
 
@@ -83,39 +83,64 @@ export const JournalCalendar = memo(function JournalCalendar({
             if (day < 1 || day > length)
               return <View key={column} style={calendarStyles.blank} />;
             const key = dayKey(new Date(year, index, day));
-            const entry = entriesByDate.get(key);
+            const recorded = recordedDates.has(key);
             return (
-              <Pressable
+              <CalendarDay
                 key={column}
-                disabled={!entry || busy}
-                onPress={() => entry && onSelect(entry)}
-                accessibilityRole={entry ? 'button' : undefined}
-                accessibilityLabel={
-                  entry ? dateLabel(key) + ' 일기 선택' : String(day)
-                }
-                accessibilityState={{ selected: selected === key }}
-                style={[
-                  calendarStyles.day,
-                  selected === key && calendarStyles.selected,
-                ]}
-              >
-                <Text
-                  style={[
-                    entry
-                      ? calendarStyles.recordedDay
-                      : calendarStyles.emptyDay,
-                    weekendStyle(column),
-                  ]}
-                >
-                  {day}
-                </Text>
-                {entry && <View style={calendarStyles.dot} />}
-              </Pressable>
+                date={key}
+                day={day}
+                column={column}
+                recorded={recorded}
+                disabled={!recorded || busy}
+                selected={selected === key}
+                onSelect={onSelect}
+              />
             );
           })}
         </View>
       ))}
     </View>
+  );
+});
+
+const CalendarDay = memo(function CalendarDay({
+  date,
+  day,
+  column,
+  recorded,
+  disabled,
+  selected,
+  onSelect,
+}: {
+  date: string;
+  day: number;
+  column: number;
+  recorded: boolean;
+  disabled: boolean;
+  selected: boolean;
+  onSelect: Props['onSelect'];
+}) {
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={() => onSelect(date)}
+      accessibilityRole={recorded ? 'button' : undefined}
+      accessibilityLabel={
+        recorded ? dateLabel(date) + ' 일기 선택' : String(day)
+      }
+      accessibilityState={{ selected, disabled }}
+      style={[calendarStyles.day, selected && calendarStyles.selected]}
+    >
+      <Text
+        style={[
+          recorded ? calendarStyles.recordedDay : calendarStyles.emptyDay,
+          weekendStyle(column),
+        ]}
+      >
+        {day}
+      </Text>
+      {recorded && <View style={calendarStyles.dot} />}
+    </Pressable>
   );
 });
 
