@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "겹날",
+    "slug": "still-me",
+    "scheme": "stillme",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": { "bundleIdentifier": "com.stillme.diary" },
+    "android": {
+      "package": "com.stillme.diary",
+      "allowBackup": false,
+      "permissions": ["android.permission.SCHEDULE_EXACT_ALARM"]
+    },
+    "plugins": [
+      "expo-router",
+      ["expo-sqlite", { "useSQLCipher": true }],
+      "expo-secure-store",
+      "expo-notifications",
+      "./plugins/with-diary-backup-exclusion"
+    ]
+  }
+}
