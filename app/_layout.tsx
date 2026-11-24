@@ -7,6 +7,7 @@ import {
   getLastNotificationResponse,
 } from 'expo-notifications';
 import { Tabs, useRouter } from 'expo-router';
+import { NativeTabs } from 'expo-router/native-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { createRef, useEffect, useMemo, type ComponentRef } from 'react';
 import { AppState, Platform, StyleSheet, View } from 'react-native';
@@ -14,10 +15,15 @@ import { refreshReminderTimeZone } from '../src/reminders';
 import { color, fonts } from '../src/ui';
 
 const tabs = [
-  { name: 'index', title: '오늘', icon: CalendarDays },
-  { name: 'journal', title: '일기', icon: BookOpen },
-  { name: 'review', title: '회고', icon: History },
-  { name: 'settings', title: '설정', icon: Settings },
+  { name: 'index', title: '오늘', icon: CalendarDays, symbol: 'calendar' },
+  { name: 'journal', title: '일기', icon: BookOpen, symbol: 'book' },
+  {
+    name: 'review',
+    title: '회고',
+    icon: History,
+    symbol: 'clock.arrow.circlepath',
+  },
+  { name: 'settings', title: '설정', icon: Settings, symbol: 'gearshape' },
 ] as const;
 
 const fontAssets = {
@@ -70,6 +76,22 @@ function DiaryTabs({ fontsLoaded }: { fontsLoaded: boolean }) {
     };
   }, [router]);
 
+  if (Platform.OS === 'ios') {
+    return (
+      <>
+        <StatusBar style="dark" />
+        <NativeTabs tintColor={color.ink}>
+          {tabs.map(({ name, title, symbol }) => (
+            <NativeTabs.Trigger key={name} name={name}>
+              <NativeTabs.Trigger.Icon sf={symbol} />
+              <NativeTabs.Trigger.Label>{title}</NativeTabs.Trigger.Label>
+            </NativeTabs.Trigger>
+          ))}
+        </NativeTabs>
+      </>
+    );
+  }
+
   return (
     <>
       <StatusBar style="dark" />
@@ -99,15 +121,13 @@ function DiaryTabs({ fontsLoaded }: { fontsLoaded: boolean }) {
             fontWeight: 'normal',
           },
           tabBarBackground: () =>
-            Platform.OS === 'ios' || androidBlur ? (
+            androidBlur ? (
               <BlurView
                 key={route.key}
                 intensity={45}
                 tint="light"
                 blurTarget={blurTargets.get(route.name)}
-                blurMethod={
-                  androidBlur ? 'dimezisBlurViewSdk31Plus' : undefined
-                }
+                blurMethod="dimezisBlurViewSdk31Plus"
                 style={[StyleSheet.absoluteFill, layoutStyles.glass]}
               />
             ) : (
