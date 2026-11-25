@@ -38,7 +38,7 @@ export function TodayHeader({ date, cycle, disabled, onSelectCycle }: Props) {
     <>
       <View style={todayStyles.header}>
         <AppHeader />
-        <View style={[styles.row, todayStyles.dateRow]}>
+        <View style={styles.row}>
           <Text style={todayStyles.date}>{dateLabel(date)}</Text>
           <Pressable
             ref={selectorRef}
@@ -102,14 +102,12 @@ export function TodayHeader({ date, cycle, disabled, onSelectCycle }: Props) {
 }
 
 const todayStyles = StyleSheet.create({
-  header: { gap: 8 },
-  dateRow: { alignItems: 'flex-start' },
+  header: { gap: 2 },
   date: {
     flex: 1,
     color: color.ink,
     fontSize: 16,
     lineHeight: 23,
-    paddingVertical: 10,
     fontWeight: '600',
   },
   selector: {

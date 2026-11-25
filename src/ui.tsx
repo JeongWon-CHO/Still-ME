@@ -66,6 +66,7 @@ export const styles = StyleSheet.create({
     maxWidth: 620,
     alignSelf: 'center',
   },
+  tabContent: { paddingTop: 6 },
   heading: {
     color: color.ink,
     fontSize: 22,
@@ -114,7 +115,11 @@ export function Page({
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView
-        contentContainerStyle={[styles.content, !modal && { paddingBottom }]}
+        contentContainerStyle={[
+          styles.content,
+          !modal && styles.tabContent,
+          !modal && { paddingBottom },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         {children}

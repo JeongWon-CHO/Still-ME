@@ -15,7 +15,7 @@ import { Button, styles, Text, useTabContentBottomPadding } from '../src/ui';
 export default function Journal() {
   const paddingBottom = useTabContentBottomPadding();
   const contentStyle = useMemo(
-    () => [styles.content, { paddingBottom }],
+    () => [styles.content, styles.tabContent, { paddingBottom }],
     [paddingBottom],
   );
   const [newEntryDate, setNewEntryDate] = useState<string>();

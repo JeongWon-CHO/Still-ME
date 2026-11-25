@@ -19,8 +19,9 @@ export function AppHeader() {
 }
 
 const styles = StyleSheet.create({
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  logo: { width: 44, height: 44 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 1 },
+  // Align the visible logo to the content edge despite the PNG's transparent inset.
+  logo: { width: 44, height: 44, marginStart: -11.5 },
   appName: {
     flexShrink: 1,
     color: color.ink,
