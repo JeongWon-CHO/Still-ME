@@ -11,6 +11,7 @@ type Props = {
   entries: Entry[];
   selected: string | undefined;
   busy: boolean;
+  canCreate: boolean;
   onSelect: (date: string) => void;
   move: (delta: number) => void;
 };
@@ -21,11 +22,13 @@ export const JournalCalendar = memo(function JournalCalendar({
   entries,
   selected,
   busy,
+  canCreate,
   onSelect,
   move,
 }: Props) {
   const blank = new Date(year, index, 1).getDay();
   const length = new Date(year, index + 1, 0).getDate();
+  const today = dayKey(new Date());
   const recordedDates = useMemo(
     () => new Set(entries.map((entry) => entry.date)),
     [entries],
@@ -91,7 +94,7 @@ export const JournalCalendar = memo(function JournalCalendar({
                 day={day}
                 column={column}
                 recorded={recorded}
-                disabled={!recorded || busy}
+                disabled={busy || (!recorded && (!canCreate || key >= today))}
                 selected={selected === key}
                 onSelect={onSelect}
               />
@@ -124,9 +127,11 @@ const CalendarDay = memo(function CalendarDay({
     <Pressable
       disabled={disabled}
       onPress={() => onSelect(date)}
-      accessibilityRole={recorded ? 'button' : undefined}
+      accessibilityRole="button"
       accessibilityLabel={
-        recorded ? dateLabel(date) + ' 일기 선택' : String(day)
+        disabled && !recorded
+          ? dateLabel(date)
+          : dateLabel(date) + (recorded ? ' 일기 선택' : ' 일기 쓰기')
       }
       accessibilityState={{ selected, disabled }}
       style={[calendarStyles.day, selected && calendarStyles.selected]}

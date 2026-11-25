@@ -61,15 +61,23 @@ export function getDatabase() {
   return database;
 }
 
-export async function saveEntry(date: string, body: string) {
+export async function saveEntry(
+  date: string,
+  body: string,
+  { onlyIfMissing = false } = {},
+) {
   const db = await getDatabase();
-  await db.runAsync(
-    'INSERT INTO entries VALUES (?, ?, ?, ?) ON CONFLICT(date) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at',
+  const conflict = onlyIfMissing
+    ? 'DO NOTHING'
+    : 'DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at';
+  const result = await db.runAsync(
+    `INSERT INTO entries VALUES (?, ?, ?, ?) ON CONFLICT(date) ${conflict}`,
     Crypto.randomUUID(),
     date,
     body.trim(),
     new Date().toISOString(),
   );
+  return result.changes > 0;
 }
 
 export async function deleteEntry(date: string) {

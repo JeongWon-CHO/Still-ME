@@ -1,27 +1,29 @@
-import { useRouter } from 'expo-router';
 import { BottomTabBarHeightContext } from 'expo-router/js-tabs';
-import { useContext, useMemo } from 'react';
-import { FlatList, Platform, StyleSheet, View } from 'react-native';
+import { useCallback, useContext, useMemo, useState } from 'react';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../src/AppHeader';
-import { dateLabel } from '../src/dates';
+import { dateLabel, dayKey } from '../src/dates';
 import { Dialog } from '../src/Dialog';
+import { EntryEditor } from '../src/journal/EntryEditor';
 import { JournalCalendar } from '../src/journal/JournalCalendar';
 import { JournalCardHeader } from '../src/journal/JournalCardHeader';
+import { JournalEntryModal } from '../src/journal/JournalEntryModal';
+import { JournalWriteSheet } from '../src/journal/JournalWriteSheet';
 import { useJournal } from '../src/journal/useJournal';
-import { Button, styles, Text, TextInput } from '../src/ui';
+import { Button, styles, Text } from '../src/ui';
 
 export default function Journal() {
-  const router = useRouter();
   const tabBarHeight = useContext(BottomTabBarHeightContext) ?? 0;
   const contentStyle = useMemo(
-    () => [styles.content, { paddingBottom: 36 + tabBarHeight }],
+    () => [styles.content, { paddingBottom: Math.max(144, tabBarHeight + 72) }],
     [tabBarHeight],
   );
   const {
     year,
     index,
     entries,
+    canCreate,
     loading,
     error,
     selected,
@@ -34,12 +36,29 @@ export default function Journal() {
     edit,
     move,
     update,
+    create,
     pendingDelete,
     deleteError,
     requestDelete,
     cancelDelete,
     confirmDelete,
   } = useJournal();
+  const [newEntryDate, setNewEntryDate] = useState<string>();
+  const [openEntryDate, setOpenEntryDate] = useState<string>();
+  const openEntry = entries.find((entry) => entry.date === openEntryDate);
+  const hasPastDates = dayKey(new Date(year, index, 1)) < dayKey(new Date());
+
+  const selectDate = useCallback(
+    (date: string) => {
+      if (entries.some((entry) => entry.date === date)) {
+        selectEntry(date);
+        setOpenEntryDate(date);
+      } else if (canCreate) {
+        setNewEntryDate(date);
+      }
+    },
+    [canCreate, entries, selectEntry],
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -58,7 +77,8 @@ export default function Journal() {
               entries={entries}
               selected={selected}
               busy={busy}
-              onSelect={selectEntry}
+              canCreate={canCreate}
+              onSelect={selectDate}
               move={move}
             />
           </View>
@@ -70,11 +90,11 @@ export default function Journal() {
             <Text style={styles.muted}>일기를 불러오지 못했어요.</Text>
           ) : (
             <View style={styles.card}>
-              <Text style={styles.muted}>이달의 일기가 아직 없어요.</Text>
-              <Button
-                label="오늘 일기 쓰기"
-                onPress={() => router.navigate('/')}
-              />
+              <Text style={styles.muted}>
+                이달의 일기가 아직 없어요.
+                {hasPastDates &&
+                  ' 달력에서 지난 날짜를 눌러 일기를 쓸 수 있어요.'}
+              </Text>
             </View>
           )
         }
@@ -89,35 +109,33 @@ export default function Journal() {
               }
             />
             {editing === entry.date ? (
-              <>
-                <TextInput
-                  multiline
-                  value={draft}
-                  onChangeText={setDraft}
-                  accessibilityLabel="일기 수정"
-                  editable={!busy}
-                  style={[styles.input, journalStyles.entryInput]}
-                />
-                <View style={[styles.row, journalStyles.actions]}>
-                  <Button
-                    label="취소"
-                    disabled={busy}
-                    onPress={() => setEditing(undefined)}
-                  />
-                  <Button
-                    label="저장"
-                    primary
-                    disabled={busy}
-                    onPress={() => void update(entry)}
-                  />
-                </View>
-              </>
+              <EntryEditor
+                body={draft}
+                busy={busy}
+                onChange={setDraft}
+                onCancel={() => setEditing(undefined)}
+                onSave={() => void update(entry)}
+              />
             ) : (
               <Text style={styles.body}>{entry.body}</Text>
             )}
           </View>
         )}
       />
+      {openEntry && (
+        <JournalEntryModal
+          entry={openEntry}
+          onClose={() => setOpenEntryDate(undefined)}
+        />
+      )}
+      {newEntryDate && (
+        <JournalWriteSheet
+          date={newEntryDate}
+          busy={busy}
+          onClose={() => setNewEntryDate(undefined)}
+          onSave={(body) => create(newEntryDate, body)}
+        />
+      )}
       {pendingDelete && (
         <Dialog
           title="일기를 삭제할까요?"
@@ -143,7 +161,4 @@ export default function Journal() {
 
 const journalStyles = StyleSheet.create({
   header: { gap: 18 },
-  // iOS places the first line of a multiline input below a matching Text line.
-  entryInput: { marginTop: Platform.OS === 'ios' ? -3 : 0 },
-  actions: { flexWrap: 'wrap', justifyContent: 'flex-end' },
 });
