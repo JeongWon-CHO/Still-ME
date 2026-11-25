@@ -1,15 +1,15 @@
 import { useRouter } from 'expo-router';
 import { BottomTabBarHeightContext } from 'expo-router/js-tabs';
-import { Pencil, Trash2 } from 'lucide-react-native';
 import { useContext, useMemo } from 'react';
-import { FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../src/AppHeader';
 import { dateLabel } from '../src/dates';
 import { Dialog } from '../src/Dialog';
 import { JournalCalendar } from '../src/journal/JournalCalendar';
+import { JournalCardHeader } from '../src/journal/JournalCardHeader';
 import { useJournal } from '../src/journal/useJournal';
-import { Button, color, styles, Text, TextInput } from '../src/ui';
+import { Button, styles, Text, TextInput } from '../src/ui';
 
 export default function Journal() {
   const router = useRouter();
@@ -80,33 +80,14 @@ export default function Journal() {
         }
         renderItem={({ item: entry }) => (
           <View style={styles.card}>
-            <View style={[styles.row, journalStyles.entryHeader]}>
-              <Text style={[styles.muted, journalStyles.date]}>
-                {dateLabel(entry.date)}
-              </Text>
-              {editing !== entry.date && (
-                <View style={journalStyles.iconActions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="일기 수정"
-                    disabled={busy}
-                    onPress={() => edit(entry)}
-                    style={iconActionStyle}
-                  >
-                    <Pencil color={color.ink} size={18} />
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="일기 삭제"
-                    disabled={busy}
-                    onPress={() => requestDelete(entry)}
-                    style={iconActionStyle}
-                  >
-                    <Trash2 color={color.ink} size={18} />
-                  </Pressable>
-                </View>
-              )}
-            </View>
+            <JournalCardHeader
+              label={dateLabel(entry.date)}
+              busy={busy}
+              onEdit={editing === entry.date ? undefined : () => edit(entry)}
+              onDelete={
+                editing === entry.date ? undefined : () => requestDelete(entry)
+              }
+            />
             {editing === entry.date ? (
               <>
                 <TextInput
@@ -162,22 +143,7 @@ export default function Journal() {
 
 const journalStyles = StyleSheet.create({
   header: { gap: 18 },
-  entryHeader: { minHeight: 44 },
   // iOS places the first line of a multiline input below a matching Text line.
   entryInput: { marginTop: Platform.OS === 'ios' ? -3 : 0 },
   actions: { flexWrap: 'wrap', justifyContent: 'flex-end' },
-  date: { flexShrink: 1 },
-  iconActions: { flexDirection: 'row' },
-  iconAction: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-  },
-  iconPressed: { backgroundColor: color.pale },
 });
-
-function iconActionStyle({ pressed }: { pressed: boolean }) {
-  return [journalStyles.iconAction, pressed && journalStyles.iconPressed];
-}

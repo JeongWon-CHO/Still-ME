@@ -1,8 +1,9 @@
 import { useIsFocused } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, AppState } from 'react-native';
 import { dayKey, type Cycle } from '../dates';
 import {
+  deleteEntry,
   getDatabase,
   loadPastEntries,
   saveEntry,
@@ -14,18 +15,30 @@ export const cycles = { week: '주', month: '월', year: '연' };
 export type LoadStatus = 'loading' | 'ready' | 'error';
 const PAGE_SIZE = 20;
 
+type TodayJournal = {
+  date: string;
+  entry: Entry | null;
+  draft?: string;
+  message?: string;
+};
+
 export function useToday() {
   const isFocused = useIsFocused();
-  const [date, setDate] = useState(() => dayKey(new Date()));
+  const [journal, setJournal] = useState<TodayJournal>(() => ({
+    date: dayKey(new Date()),
+    entry: null,
+  }));
+  const { date, entry, draft, message = '' } = journal;
+  const body = draft ?? entry?.body ?? '';
   const [past, setPast] = useState<Entry[]>([]);
   const [pastStatus, setPastStatus] = useState<LoadStatus>('loading');
   const [historyVersion, setHistoryVersion] = useState(0);
-  const [body, setBody] = useState('');
   const [cycle, setCycle] = useState<Cycle>('week');
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [status, setStatus] = useState<LoadStatus>('loading');
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const writing = useRef(false);
+  const writeVersion = useRef(0);
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
@@ -33,6 +46,7 @@ export function useToday() {
     let active = true;
     async function load() {
       const key = dayKey(new Date());
+      const version = writeVersion.current;
       try {
         const db = await getDatabase();
         const [entry, preference] = await Promise.all([
@@ -45,8 +59,16 @@ export function useToday() {
           ),
         ]);
         if (!active) return;
-        setDate(key);
-        setBody(entry?.body ?? '');
+        const stale = version !== writeVersion.current;
+        setJournal((current) => {
+          if (
+            current.date === key &&
+            (stale || current.entry?.body === entry?.body)
+          ) {
+            return current;
+          }
+          return { date: key, entry };
+        });
         setPastStatus('loading');
         setHistoryVersion((version) => version + 1);
         if (preference && preference.value in cycles)
@@ -86,20 +108,48 @@ export function useToday() {
   }, [date, cycle, limit, historyVersion]);
 
   async function save() {
-    if (saving) return;
+    if (writing.current) return;
     const text = body.trim();
     if (!text) {
-      setMessage('일기 내용을 입력해 주세요.');
+      setJournal((current) => ({
+        ...current,
+        message: '일기 내용을 입력해 주세요.',
+      }));
       return;
     }
-    setSaving(true);
+    await writeEntry({ date, body: text });
+  }
+
+  async function writeEntry(next: Entry | null) {
+    if (writing.current) return false;
+    writing.current = true;
+    setBusy(true);
     try {
-      await saveEntry(date, text);
-      setMessage('일기를 저장했어요.');
+      if (next) {
+        await saveEntry(date, next.body);
+      } else {
+        await deleteEntry(date);
+      }
+      writeVersion.current += 1;
+      setJournal((current) =>
+        current.date === date ? { date, entry: next } : current,
+      );
+      return true;
     } catch {
-      setMessage('저장하지 못했어요. 다시 시도해 주세요.');
+      if (next) {
+        setJournal((current) =>
+          current.date === date
+            ? {
+                ...current,
+                message: '저장하지 못했어요. 다시 시도해 주세요.',
+              }
+            : current,
+        );
+      }
+      return false;
     } finally {
-      setSaving(false);
+      writing.current = false;
+      setBusy(false);
     }
   }
 
@@ -131,9 +181,8 @@ export function useToday() {
     setLimit((count) => count + PAGE_SIZE);
   }
 
-  function changeBody(value: string) {
-    setBody(value);
-    setMessage('');
+  function changeBody(draft?: string) {
+    setJournal((current) => ({ ...current, draft, message: undefined }));
   }
 
   return {
@@ -142,11 +191,16 @@ export function useToday() {
     selectCycle,
     status,
     retryToday,
+    entry,
     body,
     changeBody,
-    saving,
+    editing: entry !== null && draft !== undefined,
+    edit: () => changeBody(entry?.body),
+    cancelEdit: () => changeBody(),
+    busy,
     message,
     save,
+    remove: () => writeEntry(null),
     pastStatus,
     retryPast,
     past,

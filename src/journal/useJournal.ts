@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { dayKey } from '../dates';
 import {
-  getDatabase,
+  deleteEntry,
   loadEntriesInRange,
   saveEntry,
   type Entry,
@@ -124,11 +124,7 @@ export function useJournal() {
     if (!pendingDelete || busy) return;
     setBusy(true);
     try {
-      const db = await getDatabase();
-      await db.runAsync(
-        'DELETE FROM entries WHERE date = ?',
-        pendingDelete.date,
-      );
+      await deleteEntry(pendingDelete.date);
       writeVersion.current += 1;
       setEntries((rows) =>
         rows.filter((row) => row.date !== pendingDelete.date),

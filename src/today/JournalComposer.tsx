@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Button, color, styles, Text, TextInput } from '../ui';
 
 type Props = {
@@ -7,6 +7,7 @@ type Props = {
   message: string;
   onChangeBody: (body: string) => void;
   onSave: () => void;
+  onCancel?: () => void;
 };
 
 export function JournalComposer({
@@ -15,12 +16,10 @@ export function JournalComposer({
   message,
   onChangeBody,
   onSave,
+  onCancel,
 }: Props) {
   return (
-    <View style={[styles.card, todayStyles.composer]}>
-      <Text accessibilityRole="header" style={styles.heading}>
-        오늘의 일기
-      </Text>
+    <>
       <TextInput
         multiline
         accessibilityLabel="오늘 일기 본문"
@@ -38,18 +37,30 @@ export function JournalComposer({
         >
           {message}
         </Text>
-        <Button
-          label={saving ? '저장 중' : '저장'}
-          primary
-          disabled={saving}
-          onPress={onSave}
-        />
+        <View style={todayStyles.actions}>
+          {onCancel && (
+            <Button label="취소" disabled={saving} onPress={onCancel} />
+          )}
+          <Button
+            label={saving ? '저장 중' : onCancel ? '변경 사항 저장' : '저장'}
+            primary
+            disabled={saving}
+            onPress={onSave}
+          />
+        </View>
       </View>
-    </View>
+    </>
   );
 }
 
 const todayStyles = StyleSheet.create({
-  composer: { borderRadius: 16, gap: 14 },
-  input: { minHeight: 136 },
+  // iOS places the first line of a multiline input below a matching Text line.
+  input: { minHeight: 136, marginTop: Platform.OS === 'ios' ? -3 : 0 },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
 });

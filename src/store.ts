@@ -72,6 +72,11 @@ export async function saveEntry(date: string, body: string) {
   );
 }
 
+export async function deleteEntry(date: string) {
+  const db = await getDatabase();
+  await db.runAsync('DELETE FROM entries WHERE date = ?', date);
+}
+
 export async function setSetting(key: string, value: string) {
   const db = await getDatabase();
   await db.runAsync(
