@@ -1,5 +1,4 @@
-import { BottomTabBarHeightContext } from 'expo-router/js-tabs';
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../src/AppHeader';
@@ -11,13 +10,13 @@ import { JournalCardHeader } from '../src/journal/JournalCardHeader';
 import { JournalEntryModal } from '../src/journal/JournalEntryModal';
 import { JournalWriteSheet } from '../src/journal/JournalWriteSheet';
 import { useJournal } from '../src/journal/useJournal';
-import { Button, styles, Text } from '../src/ui';
+import { Button, styles, Text, useTabContentBottomPadding } from '../src/ui';
 
 export default function Journal() {
-  const tabBarHeight = useContext(BottomTabBarHeightContext) ?? 0;
+  const paddingBottom = useTabContentBottomPadding();
   const contentStyle = useMemo(
-    () => [styles.content, { paddingBottom: Math.max(144, tabBarHeight + 72) }],
-    [tabBarHeight],
+    () => [styles.content, { paddingBottom }],
+    [paddingBottom],
   );
   const [newEntryDate, setNewEntryDate] = useState<string>();
   const [openEntryDate, setOpenEntryDate] = useState<string>();

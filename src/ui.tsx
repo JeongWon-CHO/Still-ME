@@ -98,6 +98,11 @@ export const styles = StyleSheet.create({
   },
 });
 
+export function useTabContentBottomPadding() {
+  const tabBarHeight = useContext(BottomTabBarHeightContext) ?? 0;
+  return Math.max(144, tabBarHeight + 72);
+}
+
 export function Page({
   children,
   modal = false,
@@ -105,14 +110,11 @@ export function Page({
   children: ReactNode;
   modal?: boolean;
 }) {
-  const tabBarHeight = useContext(BottomTabBarHeightContext) ?? 0;
+  const paddingBottom = useTabContentBottomPadding();
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          !modal && { paddingBottom: 36 + tabBarHeight },
-        ]}
+        contentContainerStyle={[styles.content, !modal && { paddingBottom }]}
         keyboardShouldPersistTaps="handled"
       >
         {children}
