@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { BottomTabBarHeightContext } from 'expo-router/js-tabs';
 import { Pencil, Trash2 } from 'lucide-react-native';
 import { useContext, useMemo } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../src/AppHeader';
 import { dateLabel } from '../src/dates';
@@ -80,7 +80,7 @@ export default function Journal() {
         }
         renderItem={({ item: entry }) => (
           <View style={styles.card}>
-            <View style={styles.row}>
+            <View style={[styles.row, journalStyles.entryHeader]}>
               <Text style={[styles.muted, journalStyles.date]}>
                 {dateLabel(entry.date)}
               </Text>
@@ -115,19 +115,19 @@ export default function Journal() {
                   onChangeText={setDraft}
                   accessibilityLabel="일기 수정"
                   editable={!busy}
-                  style={styles.input}
+                  style={[styles.input, journalStyles.entryInput]}
                 />
                 <View style={[styles.row, journalStyles.actions]}>
+                  <Button
+                    label="취소"
+                    disabled={busy}
+                    onPress={() => setEditing(undefined)}
+                  />
                   <Button
                     label="저장"
                     primary
                     disabled={busy}
                     onPress={() => void update(entry)}
-                  />
-                  <Button
-                    label="취소"
-                    disabled={busy}
-                    onPress={() => setEditing(undefined)}
                   />
                 </View>
               </>
@@ -162,7 +162,10 @@ export default function Journal() {
 
 const journalStyles = StyleSheet.create({
   header: { gap: 18 },
-  actions: { flexWrap: 'wrap' },
+  entryHeader: { minHeight: 44 },
+  // iOS places the first line of a multiline input below a matching Text line.
+  entryInput: { marginTop: Platform.OS === 'ios' ? -3 : 0 },
+  actions: { flexWrap: 'wrap', justifyContent: 'flex-end' },
   date: { flexShrink: 1 },
   iconActions: { flexDirection: 'row' },
   iconAction: {
