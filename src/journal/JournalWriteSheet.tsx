@@ -20,17 +20,19 @@ import {
 import { dateLabel } from '../dates';
 import { Button, color, Page, styles, Text } from '../ui';
 import { EntryEditor } from './EntryEditor';
+import { emptyPhotos, type EntryPhoto } from './entryPhotos';
 
 type Props = {
   date: string;
   busy: boolean;
   onClose: () => void;
-  onSave: (body: string) => Promise<boolean>;
+  onSave: (body: string, photos: EntryPhoto[]) => Promise<boolean>;
 };
 
 export function JournalWriteSheet({ date, busy, onClose, onSave }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [body, setBody] = useState('');
+  const [photos, setPhotos] = useState(emptyPhotos);
   const [height, setHeight] = useState(0);
   const [progress] = useState(() => new Animated.Value(0));
   const reduceMotion = useRef(false);
@@ -153,12 +155,16 @@ export function JournalWriteSheet({ date, busy, onClose, onSave }: Props) {
                   <Text style={styles.muted}>{dateLabel(date)}</Text>
                   <EntryEditor
                     body={body}
+                    photos={photos}
                     busy={busy}
                     placeholder="그날의 하루를 기록해 보세요"
                     onChange={setBody}
+                    onChangePhotos={setPhotos}
                     onCancel={cancel}
                     onSave={async () => {
-                      if (!closing.current && (await onSave(body))) dismiss();
+                      if (!closing.current && (await onSave(body, photos))) {
+                        dismiss();
+                      }
                     }}
                   />
                 </View>

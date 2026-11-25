@@ -1,8 +1,13 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
 import { Dialog } from '../src/Dialog';
+import type { EntryPhoto } from '../src/journal/entryPhotos';
 import { JournalCardHeader } from '../src/journal/JournalCardHeader';
 import { JournalEntryModal } from '../src/journal/JournalEntryModal';
+import {
+  JournalPhotoGrid,
+  JournalPhotoViewer,
+} from '../src/journal/JournalPhotos';
 import type { Entry } from '../src/store';
 import { JournalComposer } from '../src/today/JournalComposer';
 import { JournalHistory } from '../src/today/JournalHistory';
@@ -13,6 +18,7 @@ import { Button, Page, styles, Text } from '../src/ui';
 export default function Today() {
   const today = useToday();
   const [selectedEntry, setSelectedEntry] = useState<Entry>();
+  const [viewingPhoto, setViewingPhoto] = useState<EntryPhoto>();
   const [deleteDate, setDeleteDate] = useState<string>();
   const [deleteError, setDeleteError] = useState(false);
   const savedEntry = today.editing ? null : today.entry;
@@ -60,13 +66,22 @@ export default function Today() {
               }
             />
             {savedEntry ? (
-              <Text style={styles.body}>{savedEntry.body}</Text>
+              <>
+                <JournalPhotoGrid
+                  photos={savedEntry.photos}
+                  onOpen={setViewingPhoto}
+                />
+                <Text style={styles.body}>{savedEntry.body}</Text>
+              </>
             ) : (
               <JournalComposer
+                key={today.date}
                 body={today.body}
+                photos={today.draftPhotos}
                 saving={today.busy}
                 message={today.message}
                 onChangeBody={today.changeBody}
+                onChangePhotos={today.changePhotos}
                 onSave={today.save}
                 onCancel={today.editing ? today.cancelEdit : undefined}
               />
@@ -112,6 +127,18 @@ export default function Today() {
           entry={selectedEntry}
           onClose={() => setSelectedEntry(undefined)}
         />
+      )}
+      {viewingPhoto && (
+        <Modal
+          presentationStyle="fullScreen"
+          animationType="slide"
+          onRequestClose={() => setViewingPhoto(undefined)}
+        >
+          <JournalPhotoViewer
+            photo={viewingPhoto}
+            onClose={() => setViewingPhoto(undefined)}
+          />
+        </Modal>
       )}
     </Page>
   );

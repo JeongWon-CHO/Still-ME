@@ -2,13 +2,16 @@ import { useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, AppState } from 'react-native';
 import { dayKey, type Cycle } from '../dates';
+import { emptyPhotos, type EntryPhoto } from '../journal/entryPhotos';
 import {
   deleteEntry,
   getDatabase,
+  loadEntry,
   loadPastEntries,
   saveEntry,
   setSetting,
   type Entry,
+  type EntryWithPhotos,
 } from '../store';
 
 export const cycles = { week: '주', month: '월', year: '연' };
@@ -17,8 +20,9 @@ const PAGE_SIZE = 20;
 
 type TodayJournal = {
   date: string;
-  entry: Entry | null;
+  entry: EntryWithPhotos | null;
   draft?: string;
+  draftPhotos?: EntryPhoto[];
   message?: string;
 };
 
@@ -28,7 +32,13 @@ export function useToday() {
     date: dayKey(new Date()),
     entry: null,
   }));
-  const { date, entry, draft, message = '' } = journal;
+  const {
+    date,
+    entry,
+    draft,
+    draftPhotos = emptyPhotos,
+    message = '',
+  } = journal;
   const body = draft ?? entry?.body ?? '';
   const [past, setPast] = useState<Entry[]>([]);
   const [pastStatus, setPastStatus] = useState<LoadStatus>('loading');
@@ -50,10 +60,7 @@ export function useToday() {
       try {
         const db = await getDatabase();
         const [entry, preference] = await Promise.all([
-          db.getFirstAsync<Entry>(
-            'SELECT date, body FROM entries WHERE date = ?',
-            key,
-          ),
+          loadEntry(key),
           db.getFirstAsync<{ value: Cycle }>(
             "SELECT value FROM settings WHERE key = 'cycle'",
           ),
@@ -61,9 +68,16 @@ export function useToday() {
         if (!active) return;
         const stale = version !== writeVersion.current;
         setJournal((current) => {
+          const currentPhotos = current.entry?.photos ?? emptyPhotos;
+          const photos = entry?.photos ?? emptyPhotos;
           if (
             current.date === key &&
-            (stale || current.entry?.body === entry?.body)
+            (stale ||
+              (current.entry?.body === entry?.body &&
+                currentPhotos.length === photos.length &&
+                currentPhotos.every(
+                  (photo, index) => photo.id === photos[index].id,
+                )))
           ) {
             return current;
           }
@@ -117,16 +131,25 @@ export function useToday() {
       }));
       return;
     }
-    await writeEntry({ date, body: text });
+    await writeEntry({ date, body: text, photos: draftPhotos });
   }
 
-  async function writeEntry(next: Entry | null) {
+  function edit() {
+    if (!entry || writing.current) return;
+    setJournal((current) =>
+      current.entry === entry
+        ? { ...current, draft: entry.body, draftPhotos: entry.photos }
+        : current,
+    );
+  }
+
+  async function writeEntry(next: EntryWithPhotos | null) {
     if (writing.current) return false;
     writing.current = true;
     setBusy(true);
     try {
       if (next) {
-        await saveEntry(date, next.body);
+        await saveEntry(date, next.body, { photos: next.photos });
       } else {
         await deleteEntry(date);
       }
@@ -181,8 +204,18 @@ export function useToday() {
     setLimit((count) => count + PAGE_SIZE);
   }
 
-  function changeBody(draft?: string) {
+  function changeBody(draft: string) {
     setJournal((current) => ({ ...current, draft, message: undefined }));
+  }
+
+  function changePhotos(photos: EntryPhoto[]) {
+    setJournal((current) =>
+      current.date === date ? { ...current, draftPhotos: photos } : current,
+    );
+  }
+
+  function cancelEdit() {
+    setJournal((current) => ({ date: current.date, entry: current.entry }));
   }
 
   return {
@@ -194,9 +227,11 @@ export function useToday() {
     entry,
     body,
     changeBody,
+    draftPhotos,
+    changePhotos,
     editing: entry !== null && draft !== undefined,
-    edit: () => changeBody(entry?.body),
-    cancelEdit: () => changeBody(),
+    edit,
+    cancelEdit,
     busy,
     message,
     save,

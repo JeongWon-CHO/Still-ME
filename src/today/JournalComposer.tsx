@@ -1,25 +1,42 @@
+import { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import type { EntryPhoto } from '../journal/entryPhotos';
+import { JournalPhotoPicker } from '../journal/JournalPhotoPicker';
 import { Button, color, styles, Text, TextInput } from '../ui';
 
 type Props = {
   body: string;
+  photos: EntryPhoto[];
   saving: boolean;
   message: string;
   onChangeBody: (body: string) => void;
+  onChangePhotos: (photos: EntryPhoto[]) => void;
   onSave: () => void;
   onCancel?: () => void;
 };
 
 export function JournalComposer({
   body,
+  photos,
   saving,
   message,
   onChangeBody,
+  onChangePhotos,
   onSave,
   onCancel,
 }: Props) {
+  const [picking, setPicking] = useState(false);
+  const busy = saving || picking;
+
   return (
     <>
+      <JournalPhotoPicker
+        photos={photos}
+        busy={saving}
+        picking={picking}
+        onPickingChange={setPicking}
+        onChange={onChangePhotos}
+      />
       <TextInput
         multiline
         accessibilityLabel="오늘 일기 본문"
@@ -27,7 +44,7 @@ export function JournalComposer({
         placeholderTextColor={color.muted}
         value={body}
         style={[styles.input, todayStyles.input]}
-        editable={!saving}
+        editable={!busy}
         onChangeText={onChangeBody}
       />
       <View style={[styles.row, { flexWrap: 'wrap' }]}>
@@ -39,12 +56,12 @@ export function JournalComposer({
         </Text>
         <View style={todayStyles.actions}>
           {onCancel && (
-            <Button label="취소" disabled={saving} onPress={onCancel} />
+            <Button label="취소" disabled={busy} onPress={onCancel} />
           )}
           <Button
             label={saving ? '저장 중' : onCancel ? '변경 사항 저장' : '저장'}
             primary
-            disabled={saving}
+            disabled={busy}
             onPress={onSave}
           />
         </View>

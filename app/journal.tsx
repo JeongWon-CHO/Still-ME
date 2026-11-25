@@ -28,9 +28,11 @@ export default function Journal() {
     error,
     selected,
     editing,
-    setEditing,
+    cancelEdit,
     draft,
     setDraft,
+    draftPhotos,
+    setDraftPhotos,
     busy,
     selectEntry,
     edit,
@@ -111,9 +113,11 @@ export default function Journal() {
             {editing === entry.date ? (
               <EntryEditor
                 body={draft}
+                photos={draftPhotos}
                 busy={busy}
                 onChange={setDraft}
-                onCancel={() => setEditing(undefined)}
+                onChangePhotos={setDraftPhotos}
+                onCancel={cancelEdit}
                 onSave={() => void update(entry)}
               />
             ) : (
@@ -133,7 +137,7 @@ export default function Journal() {
           date={newEntryDate}
           busy={busy}
           onClose={() => setNewEntryDate(undefined)}
-          onSave={(body) => create(newEntryDate, body)}
+          onSave={(body, photos) => create(newEntryDate, body, photos)}
         />
       )}
       {pendingDelete && (

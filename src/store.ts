@@ -2,8 +2,15 @@ import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { openDatabaseAsync } from 'expo-sqlite';
 import { Cycle, fromKey } from './dates';
+import {
+  emptyPhotos,
+  MAX_ENTRY_PHOTOS,
+  MAX_PHOTO_BASE64_LENGTH,
+  type EntryPhoto,
+} from './journal/entryPhotos';
 
 export type Entry = { date: string; body: string };
+export type EntryWithPhotos = Entry & { photos: EntryPhoto[] };
 export type Review = {
   cycle: string;
   period: string;
@@ -35,13 +42,19 @@ async function openDiary() {
     const { user_version } = (await db.getFirstAsync<{ user_version: number }>(
       'PRAGMA user_version',
     ))!;
-    if (user_version === 0) {
+    if (user_version < 2) {
       await db.withTransactionAsync(async () => {
+        if (user_version === 0) {
+          await db.execAsync(`
+            CREATE TABLE entries (id TEXT PRIMARY KEY, date TEXT NOT NULL UNIQUE, body TEXT NOT NULL, updated_at TEXT NOT NULL);
+            CREATE TABLE reviews (cycle TEXT NOT NULL, period TEXT NOT NULL, answers TEXT NOT NULL, done INTEGER NOT NULL, PRIMARY KEY (cycle, period));
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+          `);
+        }
         await db.execAsync(`
-          CREATE TABLE entries (id TEXT PRIMARY KEY, date TEXT NOT NULL UNIQUE, body TEXT NOT NULL, updated_at TEXT NOT NULL);
-          CREATE TABLE reviews (cycle TEXT NOT NULL, period TEXT NOT NULL, answers TEXT NOT NULL, done INTEGER NOT NULL, PRIMARY KEY (cycle, period));
-          CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-          PRAGMA user_version = 1;
+          ALTER TABLE entries ADD COLUMN photos_json TEXT NOT NULL DEFAULT '[]';
+          ALTER TABLE entries ADD COLUMN photo_count INTEGER NOT NULL DEFAULT 0;
+          PRAGMA user_version = 2;
         `);
       });
     }
@@ -64,20 +77,62 @@ export function getDatabase() {
 export async function saveEntry(
   date: string,
   body: string,
-  { onlyIfMissing = false } = {},
+  {
+    onlyIfMissing = false,
+    photos,
+  }: { onlyIfMissing?: boolean; photos?: EntryPhoto[] } = {},
 ) {
+  if (
+    photos &&
+    (photos.length > MAX_ENTRY_PHOTOS ||
+      photos.some((photo) => photo.base64.length > MAX_PHOTO_BASE64_LENGTH))
+  ) {
+    throw new Error('Entry photos exceed the storage limit');
+  }
   const db = await getDatabase();
+  const updatePhotos =
+    photos === undefined
+      ? ''
+      : ', photos_json = excluded.photos_json, photo_count = excluded.photo_count';
   const conflict = onlyIfMissing
     ? 'DO NOTHING'
-    : 'DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at';
+    : 'DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at' +
+      updatePhotos;
   const result = await db.runAsync(
-    `INSERT INTO entries VALUES (?, ?, ?, ?) ON CONFLICT(date) ${conflict}`,
+    `INSERT INTO entries (id, date, body, updated_at, photos_json, photo_count)
+     VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(date) ${conflict}`,
     Crypto.randomUUID(),
     date,
     body.trim(),
     new Date().toISOString(),
+    JSON.stringify(photos ?? emptyPhotos),
+    photos?.length ?? 0,
   );
   return result.changes > 0;
+}
+
+export async function loadEntry(date: string): Promise<EntryWithPhotos | null> {
+  const db = await getDatabase();
+  const entry = await db.getFirstAsync<Entry & { photos_json: string }>(
+    'SELECT date, body, photos_json FROM entries WHERE date = ?',
+    date,
+  );
+  return entry
+    ? {
+        date: entry.date,
+        body: entry.body,
+        photos: JSON.parse(entry.photos_json),
+      }
+    : null;
+}
+
+export async function loadEntryPhotos(date: string): Promise<EntryPhoto[]> {
+  const db = await getDatabase();
+  const entry = await db.getFirstAsync<{ photos_json: string }>(
+    'SELECT photos_json FROM entries WHERE date = ? AND photo_count > 0',
+    date,
+  );
+  return entry ? JSON.parse(entry.photos_json) : emptyPhotos;
 }
 
 export async function deleteEntry(date: string) {

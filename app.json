@@ -16,6 +16,14 @@
       ["expo-sqlite", { "useSQLCipher": true }],
       "expo-secure-store",
       "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "일기에 첨부할 사진을 선택하려면 사진 보관함을 사용해요.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "./plugins/with-diary-backup-exclusion"
     ]
   }

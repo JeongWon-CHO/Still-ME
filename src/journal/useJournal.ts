@@ -4,10 +4,12 @@ import { Alert } from 'react-native';
 import { dayKey } from '../dates';
 import {
   deleteEntry,
+  loadEntryPhotos,
   loadEntriesInRange,
   saveEntry,
   type Entry,
 } from '../store';
+import { emptyPhotos, type EntryPhoto } from './entryPhotos';
 
 const emptyEntries: Entry[] = [];
 
@@ -21,8 +23,9 @@ export function useJournal() {
   const [selected, setSelected] = useState<string>();
   const [editing, setEditing] = useState<string>();
   const [draft, setDraft] = useState('');
+  const [draftPhotos, setDraftPhotos] = useState(emptyPhotos);
   const [busy, setBusy] = useState(false);
-  const creating = useRef(false);
+  const working = useRef(false);
   const [pendingDelete, setPendingDelete] = useState<Entry>();
   const [deleteError, setDeleteError] = useState(false);
   const year = month.getFullYear();
@@ -72,14 +75,34 @@ export function useJournal() {
     setSelected(date);
   }, []);
 
-  function edit(entry: Entry) {
-    setSelected(entry.date);
-    setEditing(entry.date);
-    setDraft(entry.body);
+  async function edit(entry: Entry) {
+    if (working.current) return;
+    working.current = true;
+    setBusy(true);
+    try {
+      const photos = await loadEntryPhotos(entry.date);
+      setSelected(entry.date);
+      setEditing(entry.date);
+      setDraft(entry.body);
+      setDraftPhotos(photos);
+    } catch {
+      Alert.alert('첨부 사진을 불러오지 못했어요. 다시 시도해 주세요.');
+    } finally {
+      working.current = false;
+      setBusy(false);
+    }
   }
+
+  function cancelEdit() {
+    setEditing(undefined);
+    setDraftPhotos(emptyPhotos);
+  }
+
   const move = useCallback((delta: number) => {
+    if (working.current) return;
     setSelected(undefined);
     setEditing(undefined);
+    setDraftPhotos(emptyPhotos);
     setLoading(true);
     setError(false);
     setMonth(
@@ -89,33 +112,34 @@ export function useJournal() {
   }, []);
 
   async function update(entry: Entry) {
-    if (busy) return;
+    if (working.current) return;
     const text = draft.trim();
     if (!text) {
       Alert.alert('일기 내용을 입력해 주세요.');
       return;
     }
+    working.current = true;
     setBusy(true);
     try {
-      await saveEntry(entry.date, text);
+      await saveEntry(entry.date, text, { photos: draftPhotos });
       writeVersion.current += 1;
       setEntries((rows) =>
         rows.map((row) =>
           row.date === entry.date ? { ...row, body: text } : row,
         ),
       );
-      setEditing(undefined);
+      cancelEdit();
     } catch {
       Alert.alert('일기를 저장하지 못했어요.');
     } finally {
+      working.current = false;
       setBusy(false);
     }
   }
 
-  async function create(date: string, body: string) {
+  async function create(date: string, body: string, photos: EntryPhoto[]) {
     if (
-      creating.current ||
-      busy ||
+      working.current ||
       loadedMonth !== start ||
       date < start ||
       date >= end ||
@@ -128,10 +152,13 @@ export function useJournal() {
       Alert.alert('일기 내용을 입력해 주세요.');
       return false;
     }
-    creating.current = true;
+    working.current = true;
     setBusy(true);
     try {
-      const saved = await saveEntry(date, text, { onlyIfMissing: true });
+      const saved = await saveEntry(date, text, {
+        onlyIfMissing: true,
+        photos,
+      });
       if (!saved) {
         Alert.alert('이미 이 날짜에 쓴 일기가 있어요.');
         return false;
@@ -152,7 +179,7 @@ export function useJournal() {
       Alert.alert('일기를 저장하지 못했어요. 다시 시도해 주세요.');
       return false;
     } finally {
-      creating.current = false;
+      working.current = false;
       setBusy(false);
     }
   }
@@ -167,7 +194,8 @@ export function useJournal() {
   }
 
   async function confirmDelete() {
-    if (!pendingDelete || busy) return;
+    if (!pendingDelete || working.current) return;
+    working.current = true;
     setBusy(true);
     try {
       await deleteEntry(pendingDelete.date);
@@ -180,6 +208,7 @@ export function useJournal() {
     } catch {
       setDeleteError(true);
     } finally {
+      working.current = false;
       setBusy(false);
     }
   }
@@ -193,9 +222,11 @@ export function useJournal() {
     error,
     selected,
     editing,
-    setEditing,
+    cancelEdit,
     draft,
     setDraft,
+    draftPhotos,
+    setDraftPhotos,
     busy,
     selectEntry,
     edit,
