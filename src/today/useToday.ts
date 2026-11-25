@@ -1,7 +1,7 @@
 import { useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, AppState } from 'react-native';
-import { dayKey, type Cycle } from '../dates';
+import { Alert } from 'react-native';
+import type { Cycle } from '../dates';
 import { emptyPhotos, type EntryPhoto } from '../journal/entryPhotos';
 import {
   deleteEntry,
@@ -13,6 +13,7 @@ import {
   type Entry,
   type EntryWithPhotos,
 } from '../store';
+import { useTodayDate } from '../useTodayDate';
 
 export const cycles = { week: '주', month: '월', year: '연' };
 export type LoadStatus = 'loading' | 'ready' | 'error';
@@ -26,12 +27,20 @@ type TodayJournal = {
   message?: string;
 };
 
+function hasDraft({ entry, draft, draftPhotos }: TodayJournal) {
+  return (
+    (draft !== undefined && (entry !== null || !!draft.trim())) ||
+    !!draftPhotos?.length
+  );
+}
+
 export function useToday() {
   const isFocused = useIsFocused();
-  const [journal, setJournal] = useState<TodayJournal>(() => ({
-    date: dayKey(new Date()),
+  const today = useTodayDate();
+  const [journal, setJournal] = useState<TodayJournal>({
+    date: today,
     entry: null,
-  }));
+  });
   const {
     date,
     entry,
@@ -39,6 +48,7 @@ export function useToday() {
     draftPhotos = emptyPhotos,
     message = '',
   } = journal;
+  const targetDate = hasDraft(journal) ? date : today;
   const body = draft ?? entry?.body ?? '';
   const [past, setPast] = useState<Entry[]>([]);
   const [pastStatus, setPastStatus] = useState<LoadStatus>('loading');
@@ -55,7 +65,7 @@ export function useToday() {
     if (!isFocused) return;
     let active = true;
     async function load() {
-      const key = dayKey(new Date());
+      const key = targetDate;
       const version = writeVersion.current;
       try {
         const db = await getDatabase();
@@ -68,6 +78,7 @@ export function useToday() {
         if (!active) return;
         const stale = version !== writeVersion.current;
         setJournal((current) => {
+          if (current.date !== key && hasDraft(current)) return current;
           const currentPhotos = current.entry?.photos ?? emptyPhotos;
           const photos = entry?.photos ?? emptyPhotos;
           if (
@@ -81,7 +92,9 @@ export function useToday() {
           ) {
             return current;
           }
-          return { date: key, entry };
+          return current.date === key && hasDraft(current)
+            ? { ...current, entry }
+            : { date: key, entry };
         });
         setPastStatus('loading');
         setHistoryVersion((version) => version + 1);
@@ -93,14 +106,10 @@ export function useToday() {
       }
     }
     void load();
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && dayKey(new Date()) !== date) void load();
-    });
     return () => {
       active = false;
-      subscription.remove();
     };
-  }, [date, isFocused, retry]);
+  }, [targetDate, isFocused, retry]);
 
   useEffect(() => {
     if (historyVersion === 0) return;
@@ -149,7 +158,19 @@ export function useToday() {
     setBusy(true);
     try {
       if (next) {
-        await saveEntry(date, next.body, { photos: next.photos });
+        const saved = await saveEntry(date, next.body, {
+          photos: next.photos,
+          onlyIfMissing: !entry,
+        });
+        if (!saved) {
+          setJournal((current) =>
+            current.date === date
+              ? { ...current, message: '이 날짜에 먼저 저장된 일기가 있어요.' }
+              : current,
+          );
+          setRetry((count) => count + 1);
+          return false;
+        }
       } else {
         await deleteEntry(date);
       }
@@ -229,7 +250,7 @@ export function useToday() {
     changeBody,
     draftPhotos,
     changePhotos,
-    editing: entry !== null && draft !== undefined,
+    editing: entry !== null && hasDraft(journal),
     edit,
     cancelEdit,
     busy,

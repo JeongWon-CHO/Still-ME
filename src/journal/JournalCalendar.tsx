@@ -8,6 +8,7 @@ import { color, styles, Text } from '../ui';
 type Props = {
   year: number;
   index: number;
+  today: string;
   entries: Entry[];
   selected: string | undefined;
   busy: boolean;
@@ -19,6 +20,7 @@ type Props = {
 export const JournalCalendar = memo(function JournalCalendar({
   year,
   index,
+  today,
   entries,
   selected,
   busy,
@@ -28,7 +30,6 @@ export const JournalCalendar = memo(function JournalCalendar({
 }: Props) {
   const blank = new Date(year, index, 1).getDay();
   const length = new Date(year, index + 1, 0).getDate();
-  const today = dayKey(new Date());
   const recordedDates = useMemo(
     () => new Set(entries.map((entry) => entry.date)),
     [entries],
@@ -94,7 +95,8 @@ export const JournalCalendar = memo(function JournalCalendar({
                 day={day}
                 column={column}
                 recorded={recorded}
-                disabled={busy || (!recorded && (!canCreate || key >= today))}
+                disabled={busy || (!recorded && (!canCreate || key > today))}
+                isToday={key === today}
                 selected={selected === key}
                 onSelect={onSelect}
               />
@@ -112,6 +114,7 @@ const CalendarDay = memo(function CalendarDay({
   column,
   recorded,
   disabled,
+  isToday,
   selected,
   onSelect,
 }: {
@@ -120,6 +123,7 @@ const CalendarDay = memo(function CalendarDay({
   column: number;
   recorded: boolean;
   disabled: boolean;
+  isToday: boolean;
   selected: boolean;
   onSelect: Props['onSelect'];
 }) {
@@ -134,7 +138,12 @@ const CalendarDay = memo(function CalendarDay({
           : dateLabel(date) + (recorded ? ' 일기 선택' : ' 일기 쓰기')
       }
       accessibilityState={{ selected, disabled }}
-      style={[calendarStyles.day, selected && calendarStyles.selected]}
+      accessibilityHint={isToday ? '오늘' : undefined}
+      style={[
+        calendarStyles.day,
+        isToday && calendarStyles.today,
+        selected && calendarStyles.selected,
+      ]}
     >
       <Text
         style={[
@@ -173,6 +182,7 @@ const calendarStyles = StyleSheet.create({
     borderRadius: 16,
   },
   selected: { backgroundColor: color.pale },
+  today: { borderWidth: 1, borderColor: color.line },
   recordedDay: { color: color.ink, fontWeight: '700' },
   emptyDay: { color: color.muted, fontWeight: '400' },
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: color.ink },

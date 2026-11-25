@@ -19,9 +19,12 @@ export default function Journal() {
     () => [styles.content, { paddingBottom: Math.max(144, tabBarHeight + 72) }],
     [tabBarHeight],
   );
+  const [newEntryDate, setNewEntryDate] = useState<string>();
+  const [openEntryDate, setOpenEntryDate] = useState<string>();
   const {
     year,
     index,
+    today,
     entries,
     canCreate,
     loading,
@@ -44,22 +47,20 @@ export default function Journal() {
     requestDelete,
     cancelDelete,
     confirmDelete,
-  } = useJournal();
-  const [newEntryDate, setNewEntryDate] = useState<string>();
-  const [openEntryDate, setOpenEntryDate] = useState<string>();
+  } = useJournal(newEntryDate ?? openEntryDate);
   const openEntry = entries.find((entry) => entry.date === openEntryDate);
-  const hasPastDates = dayKey(new Date(year, index, 1)) < dayKey(new Date());
+  const hasWritableDates = dayKey(new Date(year, index, 1)) <= today;
 
   const selectDate = useCallback(
     (date: string) => {
       if (entries.some((entry) => entry.date === date)) {
         selectEntry(date);
         setOpenEntryDate(date);
-      } else if (canCreate) {
+      } else if (canCreate && date <= today) {
         setNewEntryDate(date);
       }
     },
-    [canCreate, entries, selectEntry],
+    [canCreate, entries, selectEntry, today],
   );
 
   return (
@@ -76,6 +77,7 @@ export default function Journal() {
             <JournalCalendar
               year={year}
               index={index}
+              today={today}
               entries={entries}
               selected={selected}
               busy={busy}
@@ -94,8 +96,8 @@ export default function Journal() {
             <View style={styles.card}>
               <Text style={styles.muted}>
                 이달의 일기가 아직 없어요.
-                {hasPastDates &&
-                  ' 달력에서 지난 날짜를 눌러 일기를 쓸 수 있어요.'}
+                {hasWritableDates &&
+                  ' 달력에서 날짜를 눌러 일기를 쓸 수 있어요.'}
               </Text>
             </View>
           )

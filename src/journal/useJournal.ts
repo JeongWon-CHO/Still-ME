@@ -1,7 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import { dayKey } from '../dates';
+import { dayKey, fromKey } from '../dates';
 import {
   deleteEntry,
   loadEntryPhotos,
@@ -9,12 +9,14 @@ import {
   saveEntry,
   type Entry,
 } from '../store';
+import { useTodayDate } from '../useTodayDate';
 import { emptyPhotos, type EntryPhoto } from './entryPhotos';
 
 const emptyEntries: Entry[] = [];
 
-export function useJournal() {
-  const [month, setMonth] = useState(() => new Date());
+export function useJournal(openDate?: string) {
+  const today = useTodayDate();
+  const [browsedMonth, setBrowsedMonth] = useState<Date>();
   const [entries, setEntries] = useState(emptyEntries);
   const [loadedMonth, setLoadedMonth] = useState<string>();
   const writeVersion = useRef(0);
@@ -28,6 +30,9 @@ export function useJournal() {
   const working = useRef(false);
   const [pendingDelete, setPendingDelete] = useState<Entry>();
   const [deleteError, setDeleteError] = useState(false);
+  const month =
+    browsedMonth ??
+    fromKey(openDate ?? editing ?? pendingDelete?.date ?? today);
   const year = month.getFullYear();
   const index = month.getMonth();
   const start = dayKey(new Date(year, index, 1));
@@ -98,18 +103,21 @@ export function useJournal() {
     setDraftPhotos(emptyPhotos);
   }
 
-  const move = useCallback((delta: number) => {
-    if (working.current) return;
-    setSelected(undefined);
-    setEditing(undefined);
-    setDraftPhotos(emptyPhotos);
-    setLoading(true);
-    setError(false);
-    setMonth(
-      (current) =>
-        new Date(current.getFullYear(), current.getMonth() + delta, 1),
-    );
-  }, []);
+  const move = useCallback(
+    (delta: number) => {
+      if (working.current) return;
+      setSelected(undefined);
+      setEditing(undefined);
+      setDraftPhotos(emptyPhotos);
+      setLoading(true);
+      setError(false);
+      const target = new Date(year, index + delta, 1);
+      setBrowsedMonth(
+        dayKey(target).slice(0, 7) === today.slice(0, 7) ? undefined : target,
+      );
+    },
+    [year, index, today],
+  );
 
   async function update(entry: Entry) {
     if (working.current) return;
@@ -143,7 +151,7 @@ export function useJournal() {
       loadedMonth !== start ||
       date < start ||
       date >= end ||
-      date >= dayKey(new Date())
+      date > dayKey(new Date())
     ) {
       return false;
     }
@@ -216,6 +224,7 @@ export function useJournal() {
   return {
     year,
     index,
+    today,
     entries: loadedMonth === start ? entries : emptyEntries,
     canCreate: loadedMonth === start && !loading && !error,
     loading: loadedMonth !== start && loading,
