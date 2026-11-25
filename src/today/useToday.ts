@@ -225,6 +225,13 @@ export function useToday() {
     setLimit((count) => count + PAGE_SIZE);
   }
 
+  function applySavedPastEntry(entry: Entry) {
+    setPast((rows) =>
+      rows.map((row) => (row.date === entry.date ? entry : row)),
+    );
+    setHistoryVersion((version) => version + 1);
+  }
+
   function changeBody(draft: string) {
     setJournal((current) => ({ ...current, draft, message: undefined }));
   }
@@ -260,6 +267,7 @@ export function useToday() {
     pastStatus,
     retryPast,
     past,
+    applySavedPastEntry,
     limit,
     loadMore,
   };

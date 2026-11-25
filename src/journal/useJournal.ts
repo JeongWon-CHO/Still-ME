@@ -22,7 +22,6 @@ export function useJournal(openDate?: string) {
   const writeVersion = useRef(0);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<string>();
   const [editing, setEditing] = useState<string>();
   const [draft, setDraft] = useState('');
   const [draftPhotos, setDraftPhotos] = useState(emptyPhotos);
@@ -76,17 +75,12 @@ export function useJournal(openDate?: string) {
     }, [start, end]),
   );
 
-  const selectEntry = useCallback((date: string) => {
-    setSelected(date);
-  }, []);
-
   async function edit(entry: Entry) {
     if (working.current) return;
     working.current = true;
     setBusy(true);
     try {
       const photos = await loadEntryPhotos(entry.date);
-      setSelected(entry.date);
       setEditing(entry.date);
       setDraft(entry.body);
       setDraftPhotos(photos);
@@ -106,7 +100,6 @@ export function useJournal(openDate?: string) {
   const move = useCallback(
     (delta: number) => {
       if (working.current) return;
-      setSelected(undefined);
       setEditing(undefined);
       setDraftPhotos(emptyPhotos);
       setLoading(true);
@@ -119,6 +112,13 @@ export function useJournal(openDate?: string) {
     [year, index, today],
   );
 
+  function applySavedEntry(entry: Entry) {
+    writeVersion.current += 1;
+    setEntries((rows) =>
+      rows.map((row) => (row.date === entry.date ? entry : row)),
+    );
+  }
+
   async function update(entry: Entry) {
     if (working.current) return;
     const text = draft.trim();
@@ -130,12 +130,7 @@ export function useJournal(openDate?: string) {
     setBusy(true);
     try {
       await saveEntry(entry.date, text, { photos: draftPhotos });
-      writeVersion.current += 1;
-      setEntries((rows) =>
-        rows.map((row) =>
-          row.date === entry.date ? { ...row, body: text } : row,
-        ),
-      );
+      applySavedEntry({ ...entry, body: text });
       cancelEdit();
     } catch {
       Alert.alert('일기를 저장하지 못했어요.');
@@ -181,7 +176,6 @@ export function useJournal(openDate?: string) {
         });
         return next;
       });
-      setSelected(date);
       return true;
     } catch {
       Alert.alert('일기를 저장하지 못했어요. 다시 시도해 주세요.');
@@ -211,7 +205,6 @@ export function useJournal(openDate?: string) {
       setEntries((rows) =>
         rows.filter((row) => row.date !== pendingDelete.date),
       );
-      if (selected === pendingDelete.date) setSelected(undefined);
       setPendingDelete(undefined);
     } catch {
       setDeleteError(true);
@@ -229,7 +222,6 @@ export function useJournal(openDate?: string) {
     canCreate: loadedMonth === start && !loading && !error,
     loading: loadedMonth !== start && loading,
     error,
-    selected,
     editing,
     cancelEdit,
     draft,
@@ -237,10 +229,10 @@ export function useJournal(openDate?: string) {
     draftPhotos,
     setDraftPhotos,
     busy,
-    selectEntry,
     edit,
     move,
     update,
+    applySavedEntry,
     create,
     pendingDelete,
     deleteError,

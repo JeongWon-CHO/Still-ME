@@ -10,7 +10,6 @@ type Props = {
   index: number;
   today: string;
   entries: Entry[];
-  selected: string | undefined;
   busy: boolean;
   canCreate: boolean;
   onSelect: (date: string) => void;
@@ -22,7 +21,6 @@ export const JournalCalendar = memo(function JournalCalendar({
   index,
   today,
   entries,
-  selected,
   busy,
   canCreate,
   onSelect,
@@ -39,7 +37,7 @@ export const JournalCalendar = memo(function JournalCalendar({
     return [
       calendarStyles.monthButton,
       busy && calendarStyles.monthButtonDisabled,
-      pressed && calendarStyles.monthButtonPressed,
+      pressed && calendarStyles.pressed,
     ];
   }
 
@@ -97,7 +95,6 @@ export const JournalCalendar = memo(function JournalCalendar({
                 recorded={recorded}
                 disabled={busy || (!recorded && (!canCreate || key > today))}
                 isToday={key === today}
-                selected={selected === key}
                 onSelect={onSelect}
               />
             );
@@ -115,7 +112,6 @@ const CalendarDay = memo(function CalendarDay({
   recorded,
   disabled,
   isToday,
-  selected,
   onSelect,
 }: {
   date: string;
@@ -124,7 +120,6 @@ const CalendarDay = memo(function CalendarDay({
   recorded: boolean;
   disabled: boolean;
   isToday: boolean;
-  selected: boolean;
   onSelect: Props['onSelect'];
 }) {
   return (
@@ -137,12 +132,12 @@ const CalendarDay = memo(function CalendarDay({
           ? dateLabel(date)
           : dateLabel(date) + (recorded ? ' 일기 선택' : ' 일기 쓰기')
       }
-      accessibilityState={{ selected, disabled }}
+      accessibilityState={{ disabled }}
       accessibilityHint={isToday ? '오늘' : undefined}
-      style={[
+      style={({ pressed }) => [
         calendarStyles.day,
         isToday && calendarStyles.today,
-        selected && calendarStyles.selected,
+        pressed && calendarStyles.pressed,
       ]}
     >
       <Text
@@ -167,7 +162,7 @@ const calendarStyles = StyleSheet.create({
     borderRadius: 22,
   },
   monthButtonDisabled: { opacity: 0.45 },
-  monthButtonPressed: { backgroundColor: color.pale },
+  pressed: { backgroundColor: color.pale },
   sunday: { color: '#b42318' },
   saturday: { color: '#1756a9' },
   month: { textAlign: 'center', flexShrink: 1 },
@@ -181,7 +176,6 @@ const calendarStyles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 16,
   },
-  selected: { backgroundColor: color.pale },
   today: { borderWidth: 1, borderColor: color.line },
   recordedDay: { color: color.ink, fontWeight: '700' },
   emptyDay: { color: color.muted, fontWeight: '400' },

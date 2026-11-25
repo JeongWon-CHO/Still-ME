@@ -29,7 +29,6 @@ export default function Journal() {
     canCreate,
     loading,
     error,
-    selected,
     editing,
     cancelEdit,
     draft,
@@ -37,10 +36,10 @@ export default function Journal() {
     draftPhotos,
     setDraftPhotos,
     busy,
-    selectEntry,
     edit,
     move,
     update,
+    applySavedEntry,
     create,
     pendingDelete,
     deleteError,
@@ -54,13 +53,12 @@ export default function Journal() {
   const selectDate = useCallback(
     (date: string) => {
       if (entries.some((entry) => entry.date === date)) {
-        selectEntry(date);
         setOpenEntryDate(date);
       } else if (canCreate && date <= today) {
         setNewEntryDate(date);
       }
     },
-    [canCreate, entries, selectEntry, today],
+    [canCreate, entries, today],
   );
 
   return (
@@ -79,7 +77,6 @@ export default function Journal() {
               index={index}
               today={today}
               entries={entries}
-              selected={selected}
               busy={busy}
               canCreate={canCreate}
               onSelect={selectDate}
@@ -131,6 +128,7 @@ export default function Journal() {
       {openEntry && (
         <JournalEntryModal
           entry={openEntry}
+          onSaved={applySavedEntry}
           onClose={() => setOpenEntryDate(undefined)}
         />
       )}

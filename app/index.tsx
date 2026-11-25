@@ -125,6 +125,10 @@ export default function Today() {
       {selectedEntry && (
         <JournalEntryModal
           entry={selectedEntry}
+          onSaved={(entry) => {
+            setSelectedEntry(entry);
+            today.applySavedPastEntry(entry);
+          }}
           onClose={() => setSelectedEntry(undefined)}
         />
       )}

@@ -35,7 +35,7 @@ export function JournalCardHeader({
             onPress={onEdit}
             style={iconActionStyle}
           >
-            <Pencil color={color.ink} size={18} />
+            <Pencil color={color.muted} size={18} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -45,7 +45,7 @@ export function JournalCardHeader({
             onPress={onDelete}
             style={iconActionStyle}
           >
-            <Trash2 color={color.ink} size={18} />
+            <Trash2 color={color.muted} size={18} />
           </Pressable>
         </View>
       )}
