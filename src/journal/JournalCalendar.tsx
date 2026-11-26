@@ -1,9 +1,10 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { dateLabel, dayKey } from '../dates';
 import type { Entry } from '../store';
 import { color, styles, Text } from '../ui';
+import { JournalMonthPicker } from './JournalMonthPicker';
 
 type Props = {
   year: number;
@@ -14,6 +15,7 @@ type Props = {
   canCreate: boolean;
   onSelect: (date: string) => void;
   move: (delta: number) => void;
+  goToMonth: (year: number, index: number) => void;
 };
 
 export const JournalCalendar = memo(function JournalCalendar({
@@ -25,7 +27,10 @@ export const JournalCalendar = memo(function JournalCalendar({
   canCreate,
   onSelect,
   move,
+  goToMonth,
 }: Props) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const monthLabel = `${year}년 ${index + 1}월`;
   const blank = new Date(year, index, 1).getDay();
   const length = new Date(year, index + 1, 0).getDate();
   const recordedDates = useMemo(
@@ -54,9 +59,22 @@ export const JournalCalendar = memo(function JournalCalendar({
         >
           <ChevronLeft color={color.ink} size={20} />
         </Pressable>
-        <Text style={[styles.heading, calendarStyles.month]}>
-          {year}년 {index + 1}월
-        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="연도와 월 선택"
+          accessibilityValue={{ text: monthLabel }}
+          accessibilityState={{ disabled: busy, expanded: pickerOpen }}
+          disabled={busy}
+          onPress={() => setPickerOpen(true)}
+          style={({ pressed }) => [
+            calendarStyles.monthButtonLabel,
+            pressed && calendarStyles.pressed,
+          ]}
+        >
+          <Text style={[styles.heading, calendarStyles.month]}>
+            {monthLabel}
+          </Text>
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="다음 달"
@@ -101,6 +119,17 @@ export const JournalCalendar = memo(function JournalCalendar({
           })}
         </View>
       ))}
+      {pickerOpen && (
+        <JournalMonthPicker
+          year={year}
+          index={index}
+          onClose={() => setPickerOpen(false)}
+          onSelect={(targetYear, targetIndex) => {
+            goToMonth(targetYear, targetIndex);
+            setPickerOpen(false);
+          }}
+        />
+      )}
     </View>
   );
 });
@@ -166,6 +195,14 @@ const calendarStyles = StyleSheet.create({
   sunday: { color: '#b42318' },
   saturday: { color: '#1756a9' },
   month: { textAlign: 'center', flexShrink: 1 },
+  monthButtonLabel: {
+    flex: 1,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+  },
   row: { flexDirection: 'row' },
   weekday: { flex: 1, textAlign: 'center' },
   blank: { flex: 1 },

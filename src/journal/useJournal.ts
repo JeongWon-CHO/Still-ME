@@ -97,19 +97,24 @@ export function useJournal(openDate?: string) {
     setDraftPhotos(emptyPhotos);
   }
 
-  const move = useCallback(
-    (delta: number) => {
-      if (working.current) return;
+  const goToMonth = useCallback(
+    (targetYear: number, targetIndex: number) => {
+      if (working.current || (targetYear === year && targetIndex === index))
+        return;
+      const target = new Date(targetYear, targetIndex, 1);
       setEditing(undefined);
       setDraftPhotos(emptyPhotos);
       setLoading(true);
       setError(false);
-      const target = new Date(year, index + delta, 1);
       setBrowsedMonth(
         dayKey(target).slice(0, 7) === today.slice(0, 7) ? undefined : target,
       );
     },
     [year, index, today],
+  );
+  const move = useCallback(
+    (delta: number) => goToMonth(year, index + delta),
+    [goToMonth, year, index],
   );
 
   function applySavedEntry(entry: Entry) {
@@ -231,6 +236,7 @@ export function useJournal(openDate?: string) {
     busy,
     edit,
     move,
+    goToMonth,
     update,
     applySavedEntry,
     create,

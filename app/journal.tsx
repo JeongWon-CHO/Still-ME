@@ -37,6 +37,7 @@ export default function Journal() {
     busy,
     edit,
     move,
+    goToMonth,
     update,
     applySavedEntry,
     create,
@@ -80,6 +81,7 @@ export default function Journal() {
               canCreate={canCreate}
               onSelect={selectDate}
               move={move}
+              goToMonth={goToMonth}
             />
           </View>
         }
