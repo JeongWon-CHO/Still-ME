@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../src/AppHeader';
-import { dateLabel, dayKey } from '../src/dates';
+import { dateLabel, dayKey, fromKey } from '../src/dates';
 import { Dialog } from '../src/Dialog';
 import { EntryEditor } from '../src/journal/EntryEditor';
 import { JournalCalendar } from '../src/journal/JournalCalendar';
@@ -49,6 +49,9 @@ export default function Journal() {
   } = useJournal(newEntryDate ?? openEntryDate);
   const openEntry = entries.find((entry) => entry.date === openEntryDate);
   const hasWritableDates = dayKey(new Date(year, index, 1)) <= today;
+  const todayDate = fromKey(today);
+  const isCurrentMonth =
+    year === todayDate.getFullYear() && index === todayDate.getMonth();
 
   const selectDate = useCallback(
     (date: string) => {
@@ -71,7 +74,25 @@ export default function Journal() {
         contentContainerStyle={contentStyle}
         ListHeaderComponent={
           <View style={journalStyles.header}>
-            <AppHeader />
+            <View style={styles.row}>
+              <AppHeader />
+              {!isCurrentMonth && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: busy }}
+                  disabled={busy}
+                  onPress={() =>
+                    goToMonth(todayDate.getFullYear(), todayDate.getMonth())
+                  }
+                  style={({ pressed }) => [
+                    journalStyles.todayButton,
+                    (pressed || busy) && journalStyles.dimmed,
+                  ]}
+                >
+                  <Text style={styles.muted}>오늘로 돌아가기</Text>
+                </Pressable>
+              )}
+            </View>
             <JournalCalendar
               year={year}
               index={index}
@@ -166,4 +187,11 @@ export default function Journal() {
 
 const journalStyles = StyleSheet.create({
   header: { gap: 18 },
+  todayButton: {
+    minWidth: 44,
+    minHeight: 44,
+    flexShrink: 1,
+    justifyContent: 'center',
+  },
+  dimmed: { opacity: 0.65 },
 });
