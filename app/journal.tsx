@@ -6,10 +6,10 @@ import { dateLabel, dayKey, fromKey } from '../src/dates';
 import { Dialog } from '../src/Dialog';
 import { EntryEditor } from '../src/journal/EntryEditor';
 import { JournalCalendar } from '../src/journal/JournalCalendar';
-import { JournalCardHeader } from '../src/journal/JournalCardHeader';
 import { JournalEntryModal } from '../src/journal/JournalEntryModal';
 import { JournalWriteSheet } from '../src/journal/JournalWriteSheet';
 import { useJournal } from '../src/journal/useJournal';
+import { RecordCardHeader } from '../src/RecordCardHeader';
 import { Button, styles, Text, useTabContentBottomPadding } from '../src/ui';
 
 export default function Journal() {
@@ -123,7 +123,7 @@ export default function Journal() {
         }
         renderItem={({ item: entry }) => (
           <View style={styles.card}>
-            <JournalCardHeader
+            <RecordCardHeader
               label={dateLabel(entry.date)}
               busy={busy}
               onEdit={editing === entry.date ? undefined : () => edit(entry)}

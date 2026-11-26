@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { AppHeader } from '../src/AppHeader';
 import {
@@ -11,6 +11,8 @@ import {
   offsetDay,
   reviewPeriod,
 } from '../src/dates';
+import { Dialog } from '../src/Dialog';
+import { RecordCardHeader } from '../src/RecordCardHeader';
 import { Entry, getDatabase, loadEntriesInRange, Review } from '../src/store';
 import { Button, color, Page, styles, Text, TextInput } from '../src/ui';
 
@@ -71,6 +73,7 @@ export default function Reviews() {
   const [cycle, setCycle] = useState<Cycle>();
   const [week, setWeek] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
+  const [editAnswers, setEditAnswers] = useState<string[] | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [weekly, setWeekly] = useState<
     { period: string; answer: string | undefined }[]
@@ -80,6 +83,10 @@ export default function Reviews() {
     'loading',
   );
   const [busy, setBusy] = useState(false);
+  const pendingWrite = useRef<Promise<void> | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<'confirm' | 'error'>();
+
+  const reading = done && editAnswers === null;
 
   const period = reviewPeriod(
     cycle === 'week' ? offsetDay(today, -7 * week) : today,
@@ -97,6 +104,8 @@ export default function Reviews() {
       let active = true;
       setStatus('loading');
       async function load() {
+        await pendingWrite.current;
+        if (!active) return;
         const db = await getDatabase();
         const [diary, review, weeks] = await Promise.all([
           cycle === 'year' ? [] : loadEntriesInRange(start, end),
@@ -122,6 +131,8 @@ export default function Reviews() {
         setEntries(diary);
         setWeekly(weeklySummaries);
         setAnswers(loadedAnswers);
+        setEditAnswers(null);
+        setDeleteStatus(undefined);
         setDone(Boolean(review?.done));
         setStatus('ready');
       }
@@ -134,29 +145,74 @@ export default function Reviews() {
     }, [cycle, start, end]),
   );
 
-  async function save(complete: boolean) {
-    if (!cycle || busy) return;
-    if (complete && !answers.some((answer) => answer?.trim())) {
+  async function write(operation: () => Promise<void>) {
+    if (pendingWrite.current) return;
+    setBusy(true);
+    pendingWrite.current = operation();
+    try {
+      await pendingWrite.current;
+    } finally {
+      pendingWrite.current = null;
+      setBusy(false);
+    }
+  }
+
+  function save(complete: boolean) {
+    if (!cycle || pendingWrite.current) return;
+    const draft = editAnswers ?? answers;
+    if (complete && !draft.some((answer) => answer?.trim())) {
       Alert.alert('회고를 한 줄 이상 적어 주세요.');
       return;
     }
-    setBusy(true);
-    try {
-      const db = await getDatabase();
-      await db.runAsync(
-        'INSERT OR REPLACE INTO reviews VALUES (?, ?, ?, ?)',
-        cycle,
-        start,
-        JSON.stringify(answers),
-        complete || done ? 1 : 0,
-      );
-      setDone(complete || done);
-      Alert.alert(complete ? '회고를 완료했어요.' : '답변을 저장했어요.');
-    } catch {
-      Alert.alert('회고를 저장하지 못했어요. 다시 시도해 주세요.');
-    } finally {
-      setBusy(false);
-    }
+    void write(async () => {
+      try {
+        const db = await getDatabase();
+        await db.runAsync(
+          'INSERT OR REPLACE INTO reviews VALUES (?, ?, ?, ?)',
+          cycle,
+          start,
+          JSON.stringify(draft),
+          complete ? 1 : 0,
+        );
+        setAnswers(draft);
+        setDone(complete);
+        setEditAnswers(null);
+        if (editAnswers === null) {
+          Alert.alert(complete ? '회고를 완료했어요.' : '답변을 저장했어요.');
+        }
+      } catch {
+        Alert.alert('회고를 저장하지 못했어요. 다시 시도해 주세요.');
+      }
+    });
+  }
+
+  function remove() {
+    if (!cycle || !deleteStatus) return;
+    void write(async () => {
+      try {
+        const db = await getDatabase();
+        await db.runAsync(
+          'DELETE FROM reviews WHERE cycle = ? AND period = ?',
+          cycle,
+          start,
+        );
+        setAnswers([]);
+        setDone(false);
+        setDeleteStatus(undefined);
+      } catch {
+        setDeleteStatus('error');
+      }
+    });
+  }
+
+  function changeAnswer(index: number, value: string) {
+    if (pendingWrite.current) return;
+    const update = editAnswers === null ? setAnswers : setEditAnswers;
+    update((current: string[] | null) => {
+      const next = [...(current ?? [])];
+      next[index] = value;
+      return next;
+    });
   }
 
   function select(value: Cycle) {
@@ -236,6 +292,16 @@ export default function Reviews() {
             '안녕, ' + (Number(start.slice(0, 4)) + 1) + '년의 나야.',
           ]
         : [];
+  const draft = editAnswers ?? answers;
+  const fields = prompts.map((prompt, index) => ({
+    prompt,
+    index,
+    answered: Boolean(answers[index]?.trim()),
+  }));
+  const visibleFields = fields.filter((field) => field.answered);
+  if (!reading) {
+    visibleFields.push(...fields.filter((field) => !field.answered));
+  }
   return (
     <Page>
       <View style={reviewStyles.detailHeader}>
@@ -332,56 +398,129 @@ export default function Reviews() {
               <Text style={styles.body}>{review.answer}</Text>
             </View>
           ))}
-          {prompts.map((prompt, index) => (
-            <View key={prompt} style={{ gap: 10 }}>
-              {cycle === 'year' && groups[index] && (
-                <Text style={styles.heading}>{groups[index]}</Text>
-              )}
-              <View style={styles.card}>
-                <Text style={styles.body}>{prompt}</Text>
-                <TextInput
-                  multiline
-                  accessibilityLabel={prompt}
-                  value={answers[index] ?? ''}
-                  editable={!busy}
-                  placeholder={
-                    hints[index] ?? '한 주를 돌아본 생각을 적어 보세요.'
-                  }
-                  placeholderTextColor={color.muted}
-                  style={styles.input}
-                  onChangeText={(value) =>
-                    setAnswers((current) => {
-                      const next = [...current];
-                      next[index] = value;
-                      return next;
-                    })
-                  }
-                />
-              </View>
+          {done ? (
+            <View style={styles.card}>
+              <RecordCardHeader
+                label={cycle === 'week' ? prompts[0] : title}
+                record="회고"
+                compact
+                busy={busy}
+                hideActions={!reading}
+                onEdit={() => setEditAnswers(answers)}
+                onDelete={() => setDeleteStatus('confirm')}
+              />
+              {visibleFields.map(({ prompt, index }) => (
+                <View key={prompt} style={reviewStyles.answer}>
+                  {cycle !== 'week' && (
+                    <Text style={styles.muted}>{prompt}</Text>
+                  )}
+                  <TextInput
+                    multiline
+                    scrollEnabled={false}
+                    accessibilityLabel={reading ? undefined : prompt}
+                    value={draft[index] ?? ''}
+                    editable={!reading && !busy}
+                    placeholder={
+                      hints[index] ?? '한 주를 돌아본 생각을 적어 보세요.'
+                    }
+                    placeholderTextColor={color.muted}
+                    underlineColorAndroid="transparent"
+                    style={reviewStyles.completedInput}
+                    onChangeText={(value) => changeAnswer(index, value)}
+                  />
+                </View>
+              ))}
             </View>
-          ))}
-          {done && <Text style={styles.muted}>완료한 회고</Text>}
-          <View
-            style={[
-              reviewStyles.actions,
-              cycle === 'week' && reviewStyles.centerActions,
-            ]}
-          >
-            <Button
-              label={cycle === 'week' ? '회고 저장' : '답변 저장'}
-              primary={cycle === 'week'}
-              disabled={busy}
-              onPress={() => void save(cycle === 'week')}
-            />
-            {cycle !== 'week' && (
+          ) : (
+            prompts.map((prompt, index) => (
+              <View key={prompt} style={{ gap: 10 }}>
+                {cycle === 'year' && groups[index] && (
+                  <Text style={styles.heading}>{groups[index]}</Text>
+                )}
+                <View style={styles.card}>
+                  <Text style={styles.body}>{prompt}</Text>
+                  <TextInput
+                    multiline
+                    accessibilityLabel={prompt}
+                    value={draft[index] ?? ''}
+                    editable={!busy}
+                    placeholder={
+                      hints[index] ?? '한 주를 돌아본 생각을 적어 보세요.'
+                    }
+                    placeholderTextColor={color.muted}
+                    style={styles.input}
+                    onChangeText={(value) => changeAnswer(index, value)}
+                  />
+                </View>
+              </View>
+            ))
+          )}
+          {!reading && (
+            <View
+              style={[
+                reviewStyles.actions,
+                (cycle === 'week' || done) && reviewStyles.centerActions,
+              ]}
+            >
+              {done ? (
+                <>
+                  <Button
+                    label="취소"
+                    disabled={busy}
+                    onPress={() => setEditAnswers(null)}
+                  />
+                  <Button
+                    label="수정 저장"
+                    primary
+                    disabled={busy}
+                    onPress={() => save(true)}
+                  />
+                </>
+              ) : (
+                <>
+                  <Button
+                    label={cycle === 'week' ? '회고 저장' : '답변 저장'}
+                    primary={cycle === 'week'}
+                    disabled={busy}
+                    onPress={() => save(cycle === 'week')}
+                  />
+                  {cycle !== 'week' && (
+                    <Button
+                      label="회고 완료"
+                      primary
+                      disabled={busy}
+                      onPress={() => save(true)}
+                    />
+                  )}
+                </>
+              )}
+            </View>
+          )}
+          {reading && deleteStatus && (
+            <Dialog
+              title="회고를 삭제할까요?"
+              message={
+                deleteStatus === 'error'
+                  ? '회고를 삭제하지 못했어요. 다시 시도해 주세요.'
+                  : '삭제한 회고는 복구할 수 없어요.'
+              }
+              onClose={() => {
+                if (!busy) setDeleteStatus(undefined);
+              }}
+            >
               <Button
-                label="회고 완료"
+                label="취소"
+                disabled={busy}
+                onPress={() => setDeleteStatus(undefined)}
+              />
+              <Button
+                label={busy ? '삭제 중…' : '삭제'}
                 primary
                 disabled={busy}
-                onPress={() => void save(true)}
+                onPress={remove}
               />
-            )}
-          </View>
+            </Dialog>
+          )}
         </>
       )}
     </Page>
@@ -433,6 +572,14 @@ const reviewStyles = StyleSheet.create({
   },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   centerActions: { justifyContent: 'center' },
+  answer: { gap: 4 },
+  completedInput: {
+    ...styles.body,
+    padding: 0,
+    textAlignVertical: 'top',
+    // Align the native input's text with the diary card's Text baseline.
+    top: -3,
+  },
   disabled: { opacity: 0.3 },
   pressed: { opacity: 0.65 },
 });

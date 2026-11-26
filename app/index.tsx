@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
 import { Dialog } from '../src/Dialog';
 import type { EntryPhoto } from '../src/journal/entryPhotos';
-import { JournalCardHeader } from '../src/journal/JournalCardHeader';
 import { JournalEntryModal } from '../src/journal/JournalEntryModal';
 import {
   JournalPhotoGrid,
   JournalPhotoViewer,
 } from '../src/journal/JournalPhotos';
+import { RecordCardHeader } from '../src/RecordCardHeader';
 import type { Entry } from '../src/store';
 import { JournalComposer } from '../src/today/JournalComposer';
 import { JournalHistory } from '../src/today/JournalHistory';
@@ -51,7 +51,7 @@ export default function Today() {
       {today.status === 'ready' && (
         <>
           <View style={[styles.card, todayStyles.journalCard]}>
-            <JournalCardHeader
+            <RecordCardHeader
               label={today.editing ? '일기 수정' : '오늘의 일기'}
               heading
               busy={today.busy}
