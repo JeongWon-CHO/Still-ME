@@ -16,18 +16,15 @@ const reviewArt = {
 ⠀⠘⢦⡈⠓⠯⣍⡙⠓⠶⠤⣄⡉⠙⠒⠤⣄⡉⠓⠦⣀
 ⠀⠀⠀⠈⠓⠦⣄⡉⠑⠲⠤⣄⡉⠙⠓⠶⣤⡭⣗⣦⣈⣳
 ⠀⠀⢀⠀⠀⠀⠀⠉⠑⠲⠤⣄⡈⠉⠓⠲⠤⠭⣗⣦⣈⣳
-⠀⠐⢺⠒⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠓⠲⠤⠤⣄⣀⣈⣳
-`,
-  month: `
-⠀⠀⠀⠀⢀⢀⢔⢔⠕⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡄
+⠀⠐⢺⠒⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠓⠲⠤⠤⣄⣀⣈⣳`,
+  month: `⠀⠀⠀⠀⢀⢀⢔⢔⠕⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡄
 ⠀⠀⠀⢔⢕⢕⢕⠅⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠏⠁
 ⠀⠀⢐⢕⢕⢕⢕⠅
 ⠀⠀⢑⢕⢕⢕⢕⢕⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀
 ⠀⠀⠀⢕⢕⢕⢕⢕⢕⢕⢄⢀⠀⠀⠀⠀⠀⠀⠀⠀⠒⡗⠂
 ⠀⠀⠀⠀⠑⠑⢕⢕⢕⢕⢕⢕⢕⢕⢕⢕⠕⠑⠁
 ⠀⠀⠀⠀⠀⠀⠀⠀⠁⠁⠁⠁⠁⠁⠁`,
-  year: `
-⠀⠀⠀⠀⠀⠀⢸⢩⠭⢵⣦⣄⢀⣤⣶⠭⢭⢹
+  year: `⠀⠀⠀⠀⠀⠀⢸⢩⠭⢵⣦⣄⢀⣤⣶⠭⢭⢹
 ⠀⠀⠀⠀⠀⠀⠈⢾⣼⠉⠛⢿⣻⠟⠋⢹⣼⠎
 ⠀⠀⣠⠤⣶⢶⣶⠿⠿⠗⠀⠀⡄⠀⠐⠿⠿⢷⣶⢶⡦⢤⡀
 ⠀⠀⠳⠤⣷⣼⣶⣤⣤⣄⠀⠉⠏⠁⢀⣤⣤⣴⣾⣴⡧⠴⠃
@@ -124,8 +121,8 @@ export function ReviewHome({ today, visible, onOpen }: Props) {
                         {reviewArt[cycle]}
                       </Text>
                     </View>
-                    <View style={[styles.row, homeStyles.shortcutRow]}>
-                      <Text style={[styles.heading, homeStyles.shortcutLabel]}>
+                    <View style={styles.row}>
+                      <Text style={[styles.heading, homeStyles.label]}>
                         {reviewTitles[cycle]}
                       </Text>
                       <ChevronRight color={color.muted} size={18} />
@@ -187,17 +184,23 @@ export function ReviewHome({ today, visible, onOpen }: Props) {
 const homeStyles = StyleSheet.create({
   header: { gap: 18 },
   shortcuts: { gap: 8 },
-  shortcut: { minHeight: 152, justifyContent: 'center', overflow: 'hidden' },
-  shortcutRow: { flexGrow: 1 },
-  shortcutLabel: { flexShrink: 1, alignSelf: 'flex-start' },
+  shortcut: { minHeight: 152, overflow: 'hidden' },
   art: {
     position: 'absolute',
     top: 0,
-    right: 42,
+    right: 22,
     bottom: 0,
     justifyContent: 'center',
   },
-  artText: { color: color.ink, opacity: 0.3, fontSize: 10, lineHeight: 10 },
+  artText: {
+    color: color.ink,
+    opacity: 0.36,
+    fontSize: 16,
+    lineHeight: 21,
+    includeFontPadding: false,
+    transformOrigin: 'right center',
+    transform: [{ scaleX: 0.89 }, { scaleY: 1.17 }],
+  },
   label: { flexShrink: 1 },
   pressed: { opacity: 0.65 },
 });

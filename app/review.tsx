@@ -497,8 +497,8 @@ function ReviewDetail({
           {!reading && (
             <View
               style={
-                cycle === 'month' && !done
-                  ? reviewStyles.monthActions
+                cycle !== 'week' && !done
+                  ? reviewStyles.stackedActions
                   : [
                       reviewStyles.actions,
                       (cycle === 'week' || done) && reviewStyles.centerActions,
@@ -530,7 +530,7 @@ function ReviewDetail({
                           : '답변 저장'
                     }
                     primary={cycle === 'week'}
-                    fullWidth={cycle === 'month'}
+                    fullWidth={cycle !== 'week'}
                     disabled={busy}
                     onPress={() => save(cycle === 'week')}
                   />
@@ -538,7 +538,7 @@ function ReviewDetail({
                     <Button
                       label="회고 완료"
                       primary
-                      fullWidth={cycle === 'month'}
+                      fullWidth
                       disabled={busy}
                       onPress={() => save(true)}
                     />
@@ -621,7 +621,7 @@ const reviewStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  monthActions: { gap: 10 },
+  stackedActions: { gap: 10 },
   centerActions: { justifyContent: 'center' },
   answer: { gap: 4 },
   completedInput: {
