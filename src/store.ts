@@ -12,11 +12,18 @@ import {
 export type Entry = { date: string; body: string };
 export type EntryWithPhotos = Entry & { photos: EntryPhoto[] };
 export type Review = {
-  cycle: string;
+  cycle: Cycle;
   period: string;
   answers: string;
   done: number;
 };
+
+export async function loadCompletedReviews() {
+  const db = await getDatabase();
+  return db.getAllAsync<Pick<Review, 'cycle' | 'period' | 'answers'>>(
+    'SELECT cycle, period, answers FROM reviews WHERE done = 1',
+  );
+}
 
 async function openDiary() {
   const db = await openDatabaseAsync('still-me.db');

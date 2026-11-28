@@ -22,6 +22,15 @@ export function offsetDay(date: Date, days: number) {
   );
 }
 
+export function reviewEnd(start: string, cycle: Cycle) {
+  const date = fromKey(start);
+  if (cycle === 'week') return dayKey(offsetDay(date, 7));
+  const year = date.getFullYear();
+  return cycle === 'month'
+    ? dayKey(new Date(year, date.getMonth() + 1, 1, 12))
+    : dayKey(new Date(year + 1, 0, 1, 12));
+}
+
 export function reviewPeriod(today: Date, cycle: Cycle) {
   const monday = offsetDay(today, -((today.getDay() + 6) % 7));
   const sunday = offsetDay(monday, 6);
