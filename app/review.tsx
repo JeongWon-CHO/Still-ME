@@ -396,7 +396,7 @@ function ReviewDetail({
             </View>
           </View>
           <Text style={styles.muted}>
-            지난 한 주를 돌아보는 공간이에요.{'\n'}
+            회고는 일기 목록 맨 아래에서 쓸 수 있어요.{'\n'}
             이번 주 회고는 다음 주 월요일부터 쓸 수 있어요.
           </Text>
           <View style={reviewStyles.divider} />
