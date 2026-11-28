@@ -1,6 +1,6 @@
 import { BottomTabBarHeightContext } from 'expo-router/js-tabs';
 import { isLoaded } from 'expo-font';
-import { ReactNode, useContext } from 'react';
+import { type ComponentRef, ReactNode, type Ref, useContext } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -107,14 +107,17 @@ export function useTabContentBottomPadding() {
 export function Page({
   children,
   modal = false,
+  scrollRef,
 }: {
   children: ReactNode;
   modal?: boolean;
+  scrollRef?: Ref<ComponentRef<typeof ScrollView>>;
 }) {
   const paddingBottom = useTabContentBottomPadding();
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[
           styles.content,
           !modal && styles.tabContent,
@@ -132,12 +135,14 @@ export function Button({
   label,
   onPress,
   primary = false,
+  fullWidth = false,
   disabled = false,
   selected,
 }: {
   label: string;
   onPress: () => void;
   primary?: boolean;
+  fullWidth?: boolean;
   disabled?: boolean;
   selected?: boolean;
 }) {
@@ -148,7 +153,8 @@ export function Button({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => ({
-        alignSelf: 'flex-start',
+        alignSelf: fullWidth ? 'stretch' : 'flex-start',
+        alignItems: fullWidth ? 'center' : undefined,
         borderRadius: 30,
         minHeight: 44,
         justifyContent: 'center',

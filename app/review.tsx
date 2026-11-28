@@ -1,48 +1,28 @@
 import { useFocusEffect } from 'expo-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { useCallback, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
-import { AppHeader } from '../src/AppHeader';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { type ComponentRef, useCallback, useRef, useState } from 'react';
+import {
+  Alert,
+  BackHandler,
+  Pressable,
+  type ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import {
   Cycle,
   dateLabel,
-  dayKey,
-  fromKey,
   offsetDay,
+  reviewEnd,
   reviewPeriod,
 } from '../src/dates';
 import { Dialog } from '../src/Dialog';
 import { RecordCardHeader } from '../src/RecordCardHeader';
+import { reviewTitle, reviewTitles } from '../src/review/labels';
+import { ReviewHome } from '../src/review/ReviewHome';
 import { Entry, getDatabase, loadEntriesInRange, Review } from '../src/store';
 import { Button, color, Page, styles, Text, TextInput } from '../src/ui';
 
-const titles = { week: '주간 회고', month: '월간 회고', year: '연간 회고' };
-const reviewArt = {
-  week: `⠀⢀⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀
-⠀⢘⣦⣀⣀⡉⠉⠙⠒⠦⠤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠐⢺⠒
-⠀⢘⣦⣈⣓⡯⣍⡙⠒⠦⠤⣀⡉⠙⠒⠤⣄⡀
-⠀⠘⢦⡈⠓⠯⣍⡙⠓⠶⠤⣄⡉⠙⠒⠤⣄⡉⠓⠦⣀
-⠀⠀⠀⠈⠓⠦⣄⡉⠑⠲⠤⣄⡉⠙⠓⠶⣤⡭⣗⣦⣈⣳
-⠀⠀⢀⠀⠀⠀⠀⠉⠑⠲⠤⣄⡈⠉⠓⠲⠤⠭⣗⣦⣈⣳
-⠀⠐⢺⠒⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠓⠲⠤⠤⣄⣀⣈⣳
-`,
-  month: `
-⠀⠀⠀⠀⢀⢀⢔⢔⠕⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡄
-⠀⠀⠀⢔⢕⢕⢕⠅⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠏⠁
-⠀⠀⢐⢕⢕⢕⢕⠅
-⠀⠀⢑⢕⢕⢕⢕⢕⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀
-⠀⠀⠀⢕⢕⢕⢕⢕⢕⢕⢄⢀⠀⠀⠀⠀⠀⠀⠀⠀⠒⡗⠂
-⠀⠀⠀⠀⠑⠑⢕⢕⢕⢕⢕⢕⢕⢕⢕⢕⠕⠑⠁
-⠀⠀⠀⠀⠀⠀⠀⠀⠁⠁⠁⠁⠁⠁⠁`,
-  year: `
-⠀⠀⠀⠀⠀⠀⢸⢩⠭⢵⣦⣄⢀⣤⣶⠭⢭⢹
-⠀⠀⠀⠀⠀⠀⠈⢾⣼⠉⠛⢿⣻⠟⠋⢹⣼⠎
-⠀⠀⣠⠤⣶⢶⣶⠿⠿⠗⠀⠀⡄⠀⠐⠿⠿⢷⣶⢶⡦⢤⡀
-⠀⠀⠳⠤⣷⣼⣶⣤⣤⣄⠀⠉⠏⠁⢀⣤⣤⣴⣾⣴⡧⠴⠃
-⠀⠀⠀⠀⠀⠀⠀⣽⢿⠁⣀⣴⣲⣄⡀⢹⢿⡅
-⠀⠀⠀⠀⠀⠀⢸⠸⠬⢽⡿⠟⠙⠿⣿⠭⠼⢸
-⠀⠀⠀⠀⠀⠀⠈⠉⠉⠁⠀⠀⠀⠀⠀⠉⠉⠉`,
-};
 const monthly = [
   '이번 달을 한 문장으로 표현한다면?',
   '이번 달 나를 가장 행복하게 했던 것은 무엇인가요?',
@@ -70,7 +50,57 @@ const groups: Record<number, string> = {
 
 export default function Reviews() {
   const [today, setToday] = useState(() => new Date());
-  const [cycle, setCycle] = useState<Cycle>();
+  const [selection, setSelection] = useState<{
+    cycle: Cycle;
+    period?: string;
+  }>();
+  const close = useCallback(() => setSelection(undefined), []);
+
+  useFocusEffect(
+    useCallback(() => {
+      setToday(new Date());
+    }, []),
+  );
+
+  return (
+    <View style={styles.safe}>
+      <View
+        style={styles.safe}
+        pointerEvents={selection ? 'none' : 'auto'}
+        accessibilityElementsHidden={Boolean(selection)}
+        importantForAccessibility={selection ? 'no-hide-descendants' : 'auto'}
+      >
+        <ReviewHome
+          today={today}
+          visible={!selection}
+          onOpen={(cycle, period) => setSelection({ cycle, period })}
+        />
+      </View>
+      {selection && (
+        <View style={StyleSheet.absoluteFill}>
+          <ReviewDetail
+            cycle={selection.cycle}
+            archivedPeriod={selection.period}
+            today={today}
+            onClose={close}
+          />
+        </View>
+      )}
+    </View>
+  );
+}
+
+function ReviewDetail({
+  cycle,
+  archivedPeriod,
+  today,
+  onClose,
+}: {
+  cycle: Cycle;
+  archivedPeriod?: string;
+  today: Date;
+  onClose: () => void;
+}) {
   const [week, setWeek] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
   const [editAnswers, setEditAnswers] = useState<string[] | null>(null);
@@ -85,22 +115,34 @@ export default function Reviews() {
   const [busy, setBusy] = useState(false);
   const pendingWrite = useRef<Promise<void> | null>(null);
   const [deleteStatus, setDeleteStatus] = useState<'confirm' | 'error'>();
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
+  const diaryListY = useRef<number | null>(null);
 
   const reading = done && editAnswers === null;
+  const contextBelow = Boolean(archivedPeriod) || cycle === 'month';
 
-  const period = reviewPeriod(
-    cycle === 'week' ? offsetDay(today, -7 * week) : today,
-    cycle ?? 'week',
-  );
-  const { start, end } = period;
+  const { start, end } = archivedPeriod
+    ? { start: archivedPeriod, end: reviewEnd(archivedPeriod, cycle) }
+    : reviewPeriod(
+        cycle === 'week' ? offsetDay(today, -7 * week) : today,
+        cycle,
+      );
+
   useFocusEffect(
     useCallback(() => {
-      setToday(new Date());
-    }, []),
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          if (!pendingWrite.current) onClose();
+          return true;
+        },
+      );
+      return () => subscription.remove();
+    }, [onClose]),
   );
+
   useFocusEffect(
     useCallback(() => {
-      if (!cycle) return;
       let active = true;
       setStatus('loading');
       async function load() {
@@ -111,7 +153,7 @@ export default function Reviews() {
           cycle === 'year' ? [] : loadEntriesInRange(start, end),
           db.getFirstAsync<Review>(
             'SELECT * FROM reviews WHERE cycle = ? AND period = ?',
-            cycle!,
+            cycle,
             start,
           ),
           cycle === 'month'
@@ -134,7 +176,7 @@ export default function Reviews() {
         setEditAnswers(null);
         setDeleteStatus(undefined);
         setDone(Boolean(review?.done));
-        setStatus('ready');
+        setStatus(archivedPeriod && !review?.done ? 'error' : 'ready');
       }
       void load().catch(() => {
         if (active) setStatus('error');
@@ -142,7 +184,7 @@ export default function Reviews() {
       return () => {
         active = false;
       };
-    }, [cycle, start, end]),
+    }, [archivedPeriod, cycle, start, end]),
   );
 
   async function write(operation: () => Promise<void>) {
@@ -158,7 +200,7 @@ export default function Reviews() {
   }
 
   function save(complete: boolean) {
-    if (!cycle || pendingWrite.current) return;
+    if (pendingWrite.current) return;
     const draft = editAnswers ?? answers;
     if (complete && !draft.some((answer) => answer?.trim())) {
       Alert.alert('회고를 한 줄 이상 적어 주세요.');
@@ -178,7 +220,13 @@ export default function Reviews() {
         setDone(complete);
         setEditAnswers(null);
         if (editAnswers === null) {
-          Alert.alert(complete ? '회고를 완료했어요.' : '답변을 저장했어요.');
+          Alert.alert(
+            complete
+              ? '회고를 완료했어요.'
+              : cycle === 'month'
+                ? '임시 저장했어요.'
+                : '답변을 저장했어요.',
+          );
         }
       } catch {
         Alert.alert('회고를 저장하지 못했어요. 다시 시도해 주세요.');
@@ -187,7 +235,7 @@ export default function Reviews() {
   }
 
   function remove() {
-    if (!cycle || !deleteStatus) return;
+    if (!deleteStatus) return;
     void write(async () => {
       try {
         const db = await getDatabase();
@@ -199,6 +247,7 @@ export default function Reviews() {
         setAnswers([]);
         setDone(false);
         setDeleteStatus(undefined);
+        if (archivedPeriod) onClose();
       } catch {
         setDeleteStatus('error');
       }
@@ -215,59 +264,12 @@ export default function Reviews() {
     });
   }
 
-  function select(value: Cycle) {
-    setStatus('loading');
-    setWeek(0);
-    setCycle(value);
-  }
-  if (!cycle)
-    return (
-      <Page>
-        <AppHeader />
-        {(Object.keys(titles) as Cycle[])
-          .filter((item) => reviewPeriod(today, item).available)
-          .map((item) => (
-            <Pressable
-              key={item}
-              accessibilityRole="button"
-              accessibilityLabel={titles[item] + ' 열기'}
-              onPress={() => select(item)}
-              style={({ pressed }) => [
-                styles.card,
-                reviewStyles.listCard,
-                pressed && reviewStyles.pressed,
-              ]}
-            >
-              <View
-                pointerEvents="none"
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                style={reviewStyles.art}
-              >
-                <Text allowFontScaling={false} style={reviewStyles.artText}>
-                  {reviewArt[item]}
-                </Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.heading}>{titles[item]}</Text>
-                <ChevronRight color={color.muted} size={20} />
-              </View>
-            </Pressable>
-          ))}
-      </Page>
-    );
-
-  const title =
-    cycle === 'week'
-      ? `${start.replaceAll('-', '.')}(월)~${dayKey(offsetDay(fromKey(end), -1)).replaceAll('-', '.')}(일)`
-      : cycle === 'month'
-        ? start.slice(0, 4) + '년 ' + Number(start.slice(5, 7)) + '월'
-        : start.slice(0, 4) + '년';
+  const title = reviewTitle(cycle, start, end);
   const prompts =
     cycle === 'week'
       ? ['한 주를 돌아보며']
       : cycle === 'month'
-        ? monthly
+        ? monthly.map((prompt, index) => `Q${index + 1}. ${prompt}`)
         : yearly;
   const hints =
     cycle === 'month'
@@ -302,15 +304,46 @@ export default function Reviews() {
   if (!reading) {
     visibleFields.push(...fields.filter((field) => !field.answered));
   }
+  const context = cycle !== 'year' && (
+    <View
+      style={reviewStyles.context}
+      onLayout={(event) => {
+        diaryListY.current = event.nativeEvent.layout.y;
+      }}
+    >
+      {contextBelow && (
+        <Text style={styles.heading} accessibilityRole="header">
+          관련 일기
+        </Text>
+      )}
+      {entries.length === 0 && (
+        <Text style={[styles.muted, reviewStyles.emptyEntries]}>
+          이 기간의 일기가 없어요.
+        </Text>
+      )}
+      {entries.map((entry) => (
+        <View key={entry.date} style={styles.card}>
+          <Text style={styles.muted}>{dateLabel(entry.date)}</Text>
+          <Text style={styles.body}>{entry.body}</Text>
+        </View>
+      ))}
+      {weekly.map((review) => (
+        <View key={review.period} style={styles.card}>
+          <Text style={styles.muted}>{dateLabel(review.period)} 주간 회고</Text>
+          <Text style={styles.body}>{review.answer}</Text>
+        </View>
+      ))}
+    </View>
+  );
   return (
-    <Page>
+    <Page scrollRef={scroll}>
       <View style={reviewStyles.detailHeader}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="회고 목록으로 돌아가기"
           accessibilityState={{ disabled: busy }}
           disabled={busy}
-          onPress={() => setCycle(undefined)}
+          onPress={onClose}
           style={({ pressed }) => [
             reviewStyles.back,
             (busy || pressed) && reviewStyles.pressed,
@@ -319,10 +352,10 @@ export default function Reviews() {
           <ChevronLeft color={color.ink} size={22} />
         </Pressable>
         <Text style={styles.heading} accessibilityRole="header">
-          {titles[cycle]}
+          {reviewTitles[cycle]}
         </Text>
       </View>
-      {cycle === 'week' ? (
+      {cycle === 'week' && !archivedPeriod ? (
         <View style={reviewStyles.weekPeriod}>
           <View style={styles.row}>
             <Text style={[styles.muted, reviewStyles.period]}>{title}</Text>
@@ -363,10 +396,34 @@ export default function Reviews() {
             </View>
           </View>
           <Text style={styles.muted}>
-            지난 한 주를 돌아보는 공간이에요.{'\n'}
+            회고는 일기 목록 맨 아래에서 쓸 수 있어요.{'\n'}
             이번 주 회고는 다음 주 월요일부터 쓸 수 있어요.
           </Text>
           <View style={reviewStyles.divider} />
+        </View>
+      ) : cycle === 'month' ? (
+        <View style={styles.row}>
+          <Text style={[styles.muted, reviewStyles.period]}>{title}</Text>
+          {status === 'ready' && entries.length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                if (diaryListY.current !== null) {
+                  scroll.current?.scrollTo({
+                    y: Math.max(0, diaryListY.current - 12),
+                    animated: true,
+                  });
+                }
+              }}
+              style={({ pressed }) => [
+                reviewStyles.diaryLink,
+                pressed && reviewStyles.pressed,
+              ]}
+            >
+              <Text style={styles.muted}>관련 일기 보기</Text>
+              <ChevronDown color={color.muted} size={14} />
+            </Pressable>
+          )}
         </View>
       ) : (
         <Text style={styles.muted}>{title}</Text>
@@ -379,25 +436,7 @@ export default function Reviews() {
       )}
       {status === 'ready' && (
         <>
-          {cycle !== 'year' && entries.length === 0 && (
-            <Text style={[styles.muted, reviewStyles.emptyEntries]}>
-              이 기간의 일기가 없어요.
-            </Text>
-          )}
-          {entries.map((entry) => (
-            <View key={entry.date} style={styles.card}>
-              <Text style={styles.muted}>{dateLabel(entry.date)}</Text>
-              <Text style={styles.body}>{entry.body}</Text>
-            </View>
-          ))}
-          {weekly.map((review) => (
-            <View key={review.period} style={styles.card}>
-              <Text style={styles.muted}>
-                {dateLabel(review.period)} 주간 회고
-              </Text>
-              <Text style={styles.body}>{review.answer}</Text>
-            </View>
-          ))}
+          {!contextBelow && context}
           {done ? (
             <View style={styles.card}>
               <RecordCardHeader
@@ -457,10 +496,14 @@ export default function Reviews() {
           )}
           {!reading && (
             <View
-              style={[
-                reviewStyles.actions,
-                (cycle === 'week' || done) && reviewStyles.centerActions,
-              ]}
+              style={
+                cycle !== 'week' && !done
+                  ? reviewStyles.stackedActions
+                  : [
+                      reviewStyles.actions,
+                      (cycle === 'week' || done) && reviewStyles.centerActions,
+                    ]
+              }
             >
               {done ? (
                 <>
@@ -479,8 +522,15 @@ export default function Reviews() {
               ) : (
                 <>
                   <Button
-                    label={cycle === 'week' ? '회고 저장' : '답변 저장'}
+                    label={
+                      cycle === 'week'
+                        ? '회고 저장'
+                        : cycle === 'month'
+                          ? '임시 저장'
+                          : '답변 저장'
+                    }
                     primary={cycle === 'week'}
+                    fullWidth={cycle !== 'week'}
                     disabled={busy}
                     onPress={() => save(cycle === 'week')}
                   />
@@ -488,6 +538,7 @@ export default function Reviews() {
                     <Button
                       label="회고 완료"
                       primary
+                      fullWidth
                       disabled={busy}
                       onPress={() => save(true)}
                     />
@@ -496,6 +547,8 @@ export default function Reviews() {
               )}
             </View>
           )}
+          {cycle === 'month' && <View style={reviewStyles.contextDivider} />}
+          {contextBelow && context}
           {reading && deleteStatus && (
             <Dialog
               title="회고를 삭제할까요?"
@@ -528,22 +581,6 @@ export default function Reviews() {
 }
 
 const reviewStyles = StyleSheet.create({
-  listCard: { minHeight: 152, overflow: 'hidden' },
-  art: {
-    position: 'absolute',
-    top: 0,
-    right: 16,
-    bottom: 0,
-    justifyContent: 'center',
-  },
-  artText: {
-    color: color.ink,
-    opacity: 0.36,
-    fontSize: 16,
-    lineHeight: 17,
-    transformOrigin: 'right center',
-    transform: [{ scaleX: 0.89 }],
-  },
   detailHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   back: {
     marginLeft: -18,
@@ -562,6 +599,19 @@ const reviewStyles = StyleSheet.create({
     opacity: 0.3,
   },
   emptyEntries: { textAlign: 'center' },
+  context: { gap: styles.content.gap },
+  contextDivider: {
+    height: 1,
+    backgroundColor: color.line,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  diaryLink: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   period: { flexShrink: 1 },
   weekControls: { flexDirection: 'row' },
   arrow: {
@@ -571,6 +621,7 @@ const reviewStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  stackedActions: { gap: 10 },
   centerActions: { justifyContent: 'center' },
   answer: { gap: 4 },
   completedInput: {
